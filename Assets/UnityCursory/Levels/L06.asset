@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b84e94ea418b8534f8f61a1811eb7c9e, type: 3}
+  m_Name: L06
+  m_EditorClassIdentifier: UnityCursory.Runtime::UnityCursory.LevelAsset
+  Data:
+    Number: 6
+    Title: Mirror match
+    Blocks:
+    - Id: L6-a
+      X: 3000
+      Y: 4200
+      W: 170
+      H: 170
+      Angle: 0
+      Mass: 1.1
+      Color: '#7F77DD'
+    - Id: L6-b
+      X: 3000
+      Y: 5800
+      W: 170
+      H: 170
+      Angle: 0
+      Mass: 1.1
+      Color: '#D85A30'
+    Shapes: []
+    Walls: []
+    BlockGoals:
+    - Id: L6-ga
+      X: 7000
+      Y: 4200
+      W: 550
+      H: 550
+      TargetBlockId: L6-a
+    - Id: L6-gb
+      X: 7000
+      Y: 5800
+      W: 550
+      H: 550
+      TargetBlockId: L6-b
+    ShapeGoals: []
+    Components: []
+    Terminals: []
+    Wires: []
+    Labels:
+    - Id: L6-label
+      X: 5000
+      Y: 3300
+      Title: "Level 6 \u2014 Mirror match"
+      Subtitle: Two blocks, two pads. Take one each.

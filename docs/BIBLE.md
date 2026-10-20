@@ -136,9 +136,23 @@ interface so a compact snapshot can replace them without touching gameplay code.
   `ShapeAttachment` are not ported. Verified by `dotnet test Tests/Core.Tests` (`TuningTests`,
   `GoalTests`, `VoteModelTests`, `LevelDataTests` with Cursory's levels 1, 3 and 14 as data).
 
+- ✅ **Levels L1-L14, loader and votes** (UC-T5): `Core/Levels/LevelSeeds` ports Cursory's
+  `RoomState.SeedLevel1..14` one for one, with Cursory's own Masses (1, 1.1, 1.3, 2, 2.2, 2.6), all clear of
+  the 1.5 and 3.0 thresholds. The editor menu `UnityCursory/Write Level Assets` (`LevelAssetWriter`) writes
+  them as `LevelAsset` ScriptableObjects (`Assets/UnityCursory/Levels/L01..L14.asset`) and the ordered
+  `LevelLibrary` (`Assets/UnityCursory/Resources/UnityCursory/LevelLibrary.asset`, found with
+  `LevelLibrary.Load()`). `LevelLoader` holds the current level, plays a copy (`World`), and raises the
+  geometry-resend and level-banner flags on load and reset; `VoteBox` runs reset and level votes against it.
+  Verified by `dotnet test Tests/Core.Tests`: `LevelSeedTests`, `LevelAssetTests` (the committed assets read
+  from their YAML equal the seeds), `LevelLoaderTests`, `VoteAndLevelTests` (ported from Cursory.Tests) and
+  `SolvabilityTests` (ported from Cursory.Tests: the block levels are auto-solved by two cursors and the
+  shape levels 3, 9 and 12 make real progress, through `PullRoom`, a headless stand-in for the physics built
+  on `Tuning`; UC-T6 checks the real Physics2D sim).
+
 ## 7. Active frontier {#UC-§7}
-The UnityCursory tickets UC-T4 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
-[USER_STORIES.md](USER_STORIES.md). Next: UC-T5 (levels L1-L14 as ScriptableObjects holding `LevelData`).
+The UnityCursory tickets UC-T6 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
+[USER_STORIES.md](USER_STORIES.md). Next: UC-T6 (the server's Physics2D sim, building bodies from
+`LevelLoader.World`).
 
 ## 8. Glossary {#UC-§8}
 - **World pixel** — Cursory's unit; 100 to a metre ([UC-LAW-3](#UC-LAW-3)).

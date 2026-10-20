@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b84e94ea418b8534f8f61a1811eb7c9e, type: 3}
+  m_Name: L13
+  m_EditorClassIdentifier: UnityCursory.Runtime::UnityCursory.LevelAsset
+  Data:
+    Number: 13
+    Title: Door hold
+    Blocks:
+    - Id: L13-block
+      X: 2800
+      Y: 5000
+      W: 220
+      H: 220
+      Angle: 0
+      Mass: 2.2
+      Color: '#7F77DD'
+    Shapes: []
+    Walls:
+    - Id: L13-wt
+      X: 5000
+      Y: 4100
+      W: 240
+      H: 1500
+    - Id: L13-wb
+      X: 5000
+      Y: 5900
+      W: 240
+      H: 1500
+    BlockGoals:
+    - Id: L13-goal
+      X: 7200
+      Y: 5000
+      W: 700
+      H: 700
+      TargetBlockId: L13-block
+    ShapeGoals: []
+    Components: []
+    Terminals: []
+    Wires: []
+    Labels:
+    - Id: L13-label
+      X: 5000
+      Y: 3200
+      Title: "Level 13 \u2014 Door hold"
+      Subtitle: A tight gap. Control the block together and ease it through without
+        snagging.

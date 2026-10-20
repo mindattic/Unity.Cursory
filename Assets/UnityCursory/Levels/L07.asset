@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b84e94ea418b8534f8f61a1811eb7c9e, type: 3}
+  m_Name: L07
+  m_EditorClassIdentifier: UnityCursory.Runtime::UnityCursory.LevelAsset
+  Data:
+    Number: 7
+    Title: Stand and slide
+    Blocks:
+    - Id: L7-block
+      X: 2700
+      Y: 5000
+      W: 200
+      H: 200
+      Angle: 0
+      Mass: 2
+      Color: '#D4537E'
+    Shapes: []
+    Walls:
+    - Id: L7-top
+      X: 4500
+      Y: 4760
+      W: 4200
+      H: 120
+    - Id: L7-bot
+      X: 4500
+      Y: 5240
+      W: 4200
+      H: 120
+    BlockGoals:
+    - Id: L7-goal
+      X: 7100
+      Y: 5000
+      W: 600
+      H: 600
+      TargetBlockId: L7-block
+    ShapeGoals: []
+    Components: []
+    Terminals: []
+    Wires: []
+    Labels:
+    - Id: L7-label
+      X: 5000
+      Y: 3300
+      Title: "Level 7 \u2014 Stand and slide"
+      Subtitle: Keep it in the corridor and slide it to the far pad. Two cursors
+        to move it.
