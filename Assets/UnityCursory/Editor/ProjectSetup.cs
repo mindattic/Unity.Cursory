@@ -60,11 +60,15 @@ namespace UnityCursory.EditorTools
             Debug.Log("[UnityCursory] URP 2D pipeline: " + PipelinePath);
         }
 
-        /// <summary>Top-down world with no gravity; product identity; the Input System as the only input backend.</summary>
+        /// <summary>
+        /// Top-down world with no gravity, stepped only by the server's tick (Script mode, UC-T6); product
+        /// identity; the Input System as the only input backend.
+        /// </summary>
         [MenuItem("UnityCursory/Set Up Project Settings")]
         public static void SetUpProjectSettings()
         {
             Physics2D.gravity = Vector2.zero;
+            Physics2D.simulationMode = SimulationMode2D.Script; // ServerSimulation steps it; clients never simulate
             PlayerSettings.companyName = "MindAttic";
             PlayerSettings.productName = "UnityCursory";
             PlayerSettings.colorSpace = ColorSpace.Linear;

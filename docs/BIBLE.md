@@ -149,10 +149,23 @@ interface so a compact snapshot can replace them without touching gameplay code.
   shape levels 3, 9 and 12 make real progress, through `PullRoom`, a headless stand-in for the physics built
   on `Tuning`; UC-T6 checks the real Physics2D sim).
 
+- ✅ **Server physics sim** (UC-T6): `Runtime/Physics/PhysicsWorld` builds a level's bodies in Physics2D,
+  in metres at 100 px/m: each block and shape a dynamic `Rigidbody2D` (`mass = Mass × 5`, gravity 0, linear
+  damping 1.5, angular 2.0; a shape is one body with a `BoxCollider2D` per piece) held to the world by a
+  `FrictionJoint2D` at its centre of mass (maxForce `Mass × 40`, maxTorque `× 1.2`), each wall a static
+  collider, and each grab a `TargetJoint2D` (maxForce 60, frequency 5, damping 0.7, target set by hand)
+  anchored on the rim by `Core/Physics/GrabGeometry` ([UC-LAW-5](#UC-LAW-5), Cursory's `ProjectToEdge`).
+  `Runtime/Physics/ServerSimulation` puts Physics2D in Script mode (also the project setting, so a client
+  never simulates) and steps the world 1/30 s per tick of the session clock (`NetSession.Clock`, NGO's
+  `NetworkTickSystem.Tick`), attaching only when the bound session runs as a Host or Server. Verified by
+  the PlayMode suite `Assets/UnityCursory/Tests/PlayMode` (`ServerPhysicsTests`: one cursor moves Mass 1.0
+  but not 2.0, two move 2.0, an edge grab turns a bar, nothing moves without a tick, and a dedicated-server
+  session steps once per network tick) and `dotnet test Tests/Core.Tests` (`GrabGeometryTests`).
+
 ## 7. Active frontier {#UC-§7}
-The UnityCursory tickets UC-T6 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
-[USER_STORIES.md](USER_STORIES.md). Next: UC-T6 (the server's Physics2D sim, building bodies from
-`LevelLoader.World`).
+The UnityCursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
+[USER_STORIES.md](USER_STORIES.md). Next: UC-T7 (the networked cursor as the player object, driving
+`PhysicsWorld` grabs, and server-authoritative body sync).
 
 ## 8. Glossary {#UC-§8}
 - **World pixel** — Cursory's unit; 100 to a metre ([UC-LAW-3](#UC-LAW-3)).
