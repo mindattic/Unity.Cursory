@@ -126,10 +126,19 @@ interface so a compact snapshot can replace them without touching gameplay code.
   backend, and the local multiplayer and Capture packages. Opens and compiles in batch mode with no
   errors. Engine-free Core verified by `dotnet test Tests/Core.Tests` (`WorldUnitsTests`,
   `SimulationRateTests`).
+- ✅ **Core model and level schema** (UC-T4): `Assets/UnityCursory/Core/Model` ports Cursory's
+  `GameState.cs` engine-free: `Block` and compound `Shape`/`ShapePiece` (Mass), `Wall`, `WorldLabel`,
+  `BlockGoal`/`ShapeGoal` (centre / every piece centre strictly inside), the circuit (`CircuitComponent`
+  with `ComponentKind`, `Terminal` with `TerminalPolarity`, `Wire`), `Vote` (`VoteKind`, 2/3 quorum,
+  early rejection, 15 s timeout), `Whistle`, and `Tuning` (Cursory's constants and the Mass rules:
+  `CursorsNeeded`, `IsClearOfThresholds`). `Core/Levels/LevelData` is the level schema (Unity-serializable
+  fields, deep `Clone`, `Geometry()` for [UC-LAW-4](#UC-LAW-4), `Validate()`). `SwitchTile`, `Door` and
+  `ShapeAttachment` are not ported. Verified by `dotnet test Tests/Core.Tests` (`TuningTests`,
+  `GoalTests`, `VoteModelTests`, `LevelDataTests` with Cursory's levels 1, 3 and 14 as data).
 
 ## 7. Active frontier {#UC-§7}
 The UnityCursory tickets UC-T4 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
-[USER_STORIES.md](USER_STORIES.md). Next: UC-T4 (the engine-free Core model ported from Cursory's `GameState.cs`).
+[USER_STORIES.md](USER_STORIES.md). Next: UC-T5 (levels L1-L14 as ScriptableObjects holding `LevelData`).
 
 ## 8. Glossary {#UC-§8}
 - **World pixel** — Cursory's unit; 100 to a metre ([UC-LAW-3](#UC-LAW-3)).
