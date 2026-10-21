@@ -178,6 +178,23 @@ interface so a compact snapshot can replace them without touching gameplay code.
   `CursorAvatarHostAndClientTests` (host + client) and `CursorAvatarServerAndClientsTests` (dedicated server
   + two clients).
 
+- ✅ **Goals, circuit and win detection** (UC-T9): `Core/Rules/CircuitRules` ports Cursory's `SnapWireEnd`
+  (a released wire end plugs into the nearest terminal within `Tuning.WireSnapRadius` = 90 px, inclusive, and
+  moves onto it; else it stays loose where dropped) and `EvaluateCircuit` (the bulb is lit only when the plugged
+  wires close battery+ to battery− and removing either the bulb's or the resistor's internal edge breaks the
+  loop). `Core/Rules/LevelProgress` is the server's goal pass over a played level: block goals (centre strictly
+  inside), shape goals (every piece centre strictly inside), the bulb, the win (every goal solved and, with a
+  circuit, the bulb lit), and the wires' live state (a cursor's grabbed end unplugs, follows the cursor, snaps on
+  release). `Runtime/Levels/LevelStateServer` runs that pass after every `ServerSimulation` step against the
+  Physics2D poses and publishes it through `Runtime/Levels/LevelStateSync`, a server-owned `NetEntity`:
+  `[Synced]` level number, goal count, solved bitmask (block goals then shape goals), circuit, bulb and win,
+  plus the wires (ends and plugged terminal indices) by a reliable `[ToClients]` call on change and a
+  `[ToClient]` answer to a late joiner's `[ToServer]` request. Verified by `dotnet test Tests/Core.Tests`
+  (`CircuitTests`, ported from Cursory.Tests, and `GoalProgressTests`) and PlayMode `LevelStateServerTests`
+  (a real grab drags a block onto its pad; wiring level 14 lights the bulb on the next tick) and
+  `LevelStateSyncTests` (host and client over loopback: goal, win, bulb and wires reach the client; a late
+  joiner gets the wires).
+
 ## 7. Active frontier {#UC-§7}
 The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
 [USER_STORIES.md](USER_STORIES.md). Next: UC-T8 (tethers and per-player settings on the UC-T7 cursor).
