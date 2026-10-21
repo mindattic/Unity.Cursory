@@ -4,6 +4,9 @@
     "references": [
         "Unity.Cursory.Core",
         "Unity.Cursory.Runtime",
+        "Unity.Multiplayer",
+        "Unity.Multiplayer.Core",
+        "Unity.Netcode.Runtime",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.RenderPipelines.Universal.2D.Runtime",

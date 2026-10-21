@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
 using Unity.Cursory.Core;
@@ -20,6 +21,9 @@ namespace Unity.Cursory
     /// </remarks>
     public sealed class ServerSimulation : IDisposable
     {
+        /// <summary>Every bound simulation by the session it follows, so <see cref="CursorAvatar"/> can find the one running its own session.</summary>
+        private static readonly Dictionary<NetSession, ServerSimulation> s_BySession = new Dictionary<NetSession, ServerSimulation>();
+
         private ITickClock _clock;
         private NetSession _session;
 
@@ -32,6 +36,22 @@ namespace Unity.Cursory
         /// <summary>The world each tick steps; null steps nothing. Swap it on a level load or reset.</summary>
         public PhysicsWorld World { get; set; }
 
+        /// <summary>
+        /// The level list and current level this simulation plays, if any (<see cref="CursorAvatar"/> and
+        /// <see cref="GeometryBroadcast"/> read this; neither is required to use one).
+        /// </summary>
+        public LevelLoader Loader { get; set; }
+
+        /// <summary>The session this simulation is bound to (<see cref="Bind"/>); null when none is.</summary>
+        public NetSession BoundSession => _session;
+
+        /// <summary>The simulation bound to <paramref name="session"/>, or null when none is.</summary>
+        public static ServerSimulation For(NetSession session)
+        {
+            ServerSimulation sim;
+            return session != null && s_BySession.TryGetValue(session, out sim) ? sim : null;
+        }
+
         /// <summary>True while a tick clock is attached, which happens only on the server.</summary>
         public bool IsAttached => _clock != null;
 
@@ -40,6 +60,13 @@ namespace Unity.Cursory
 
         /// <summary>Raised after each step, with the clock's tick, for the server's per-tick game logic.</summary>
         public event Action<long> Stepped;
+
+        /// <summary>
+        /// Raised after a step in which <see cref="Loader"/> had a pending geometry resend (BIBLE UC-LAW-4): a level
+        /// just loaded or reset. <see cref="GeometryBroadcast"/> turns this into a <see cref="CursorAvatar.ReceiveGeometry"/>
+        /// call on every spawned cursor.
+        /// </summary>
+        public event Action<LevelGeometry> GeometryChanged;
 
         /// <summary>Stops every Physics2D auto-step (FixedUpdate or Update); the simulation advances only by hand.</summary>
         public static void UseScriptMode()
@@ -57,6 +84,7 @@ namespace Unity.Cursory
             if (session == null) throw new ArgumentNullException(nameof(session));
             Unbind();
             _session = session;
+            s_BySession[session] = this;
             _session.Started += OnSessionStarted;
             _session.Ended += OnSessionEnded;
             if (_session.Clock != null) OnSessionStarted();
@@ -68,6 +96,11 @@ namespace Unity.Cursory
             if (_session == null) return;
             _session.Started -= OnSessionStarted;
             _session.Ended -= OnSessionEnded;
+            if (s_BySession.TryGetValue(_session, out ServerSimulation current) && current == this)
+            {
+                s_BySession.Remove(_session);
+            }
+
             _session = null;
             Detach();
         }
@@ -113,6 +146,11 @@ namespace Unity.Cursory
 
         private void OnTick(long tick)
         {
+            if (Loader != null && Loader.ConsumeGeometryRebroadcast())
+            {
+                GeometryChanged?.Invoke(Loader.World.Geometry());
+            }
+
             var world = World;
             if (world == null) return;
             world.Step(SimulationRate.TickSeconds);

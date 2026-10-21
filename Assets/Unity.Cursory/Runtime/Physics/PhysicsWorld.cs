@@ -25,13 +25,22 @@ namespace Unity.Cursory
     {
         private readonly Dictionary<string, Body> _bodies = new Dictionary<string, Body>();
         private readonly Dictionary<ulong, Held> _grabs = new Dictionary<ulong, Held>();
+        private readonly Dictionary<string, Wall> _walls = new Dictionary<string, Wall>();
+        private readonly IBodySync _bodySync;
         private GameObject _root;
 
-        /// <summary>Builds the bodies and walls of <paramref name="level"/> under a new root object.</summary>
+        /// <summary>
+        /// Builds the bodies and walls of <paramref name="level"/> under a new root object. When
+        /// <paramref name="bodySync"/> is given (UC-T7, a running server session), every block and shape is
+        /// replicated to every client through it (BIBLE UC-LAW-7); null (the default, and every UC-T6 caller)
+        /// builds plain, unnetworked bodies, as every test that constructs a <see cref="PhysicsWorld"/> directly
+        /// still does.
+        /// </summary>
         /// <exception cref="ArgumentNullException"><paramref name="level"/> is null.</exception>
-        public PhysicsWorld(LevelData level, string name = "PhysicsWorld")
+        public PhysicsWorld(LevelData level, string name = "PhysicsWorld", IBodySync bodySync = null)
         {
             if (level == null) throw new ArgumentNullException(nameof(level));
+            _bodySync = bodySync;
             _root = new GameObject(name);
             foreach (var w in level.Walls) AddWall(w);
             foreach (var b in level.Blocks) AddBlock(b);
@@ -41,6 +50,31 @@ namespace Unity.Cursory
 
         /// <summary>The ids of every movable body (blocks and shapes).</summary>
         public IEnumerable<string> BodyIds => _bodies.Keys;
+
+        /// <summary>True when <paramref name="id"/> names a compound shape rather than a block.</summary>
+        /// <exception cref="KeyNotFoundException">No body has that id.</exception>
+        public bool IsShape(string id) => Find(id).Pieces != null;
+
+        /// <summary>True when <paramref name="id"/> is a wall of this world.</summary>
+        public bool HasWall(string id) => id != null && _walls.ContainsKey(id);
+
+        /// <summary>
+        /// Where a grab on wall <paramref name="id"/> lands: the point on its rim nearest the click (UC-LAW-5), in
+        /// body-local world pixels (as <see cref="TryGetGrab"/> returns for a block or shape). A wall never moves,
+        /// so this is bookkeeping only (<see cref="CursorAvatar.GrabWall"/>); nothing in <see cref="PhysicsWorld"/>
+        /// changes.
+        /// </summary>
+        /// <exception cref="KeyNotFoundException">No wall has that id.</exception>
+        public (float X, float Y) WallAnchor(string id, float clickX, float clickY)
+        {
+            Wall wall;
+            if (id == null || !_walls.TryGetValue(id, out wall))
+            {
+                throw new KeyNotFoundException("No wall '" + id + "' in this world.");
+            }
+
+            return GrabGeometry.BlockAnchor(wall.W, wall.H, wall.X, wall.Y, 0f, clickX, clickY);
+        }
 
         /// <summary>The cursors holding a body right now.</summary>
         public IEnumerable<ulong> Grabbers => _grabs.Keys;
@@ -151,6 +185,7 @@ namespace Unity.Cursory
             if (_root == null) return;
             _grabs.Clear();
             _bodies.Clear();
+            _walls.Clear();
             if (Application.isPlaying) UnityEngine.Object.Destroy(_root);
             else UnityEngine.Object.DestroyImmediate(_root);
             _root = null;
@@ -165,6 +200,7 @@ namespace Unity.Cursory
             rb.bodyType = RigidbodyType2D.Static;
             var box = go.AddComponent<BoxCollider2D>();
             box.size = new Vector2(WorldUnits.ToMeters(w.W), WorldUnits.ToMeters(w.H));
+            _walls[w.Id] = w.Clone();
         }
 
         private void AddBlock(Block b)
@@ -193,10 +229,24 @@ namespace Unity.Cursory
 
         private Rigidbody2D NewBody(string name, float x, float y, float angle)
         {
-            var go = new GameObject(name);
-            go.transform.SetParent(_root.transform, false);
-            go.transform.SetPositionAndRotation(ToMeters(x, y), Quaternion.Euler(0f, 0f, angle * Mathf.Rad2Deg));
-            var rb = go.AddComponent<Rigidbody2D>();
+            Vector2 position = ToMeters(x, y);
+            Quaternion rotation = Quaternion.Euler(0f, 0f, angle * Mathf.Rad2Deg);
+            GameObject go;
+            if (_bodySync != null)
+            {
+                // The returned object already carries a Rigidbody2D (and is spawned, replicated to every client);
+                // everything below just configures it, the same as the unnetworked path.
+                go = _bodySync.SpawnBody(name, position, rotation, _root.transform);
+            }
+            else
+            {
+                go = new GameObject(name);
+                go.transform.SetParent(_root.transform, false);
+                go.transform.SetPositionAndRotation(position, rotation);
+            }
+
+            var rb = go.GetComponent<Rigidbody2D>();
+            if (rb == null) rb = go.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Dynamic;
             rb.gravityScale = 0f;
             rb.linearDamping = Tuning.LinearDamping;

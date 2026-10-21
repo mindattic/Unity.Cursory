@@ -1,0 +1,57 @@
+using Unity.Multiplayer;
+using UnityEngine;
+
+namespace Unity.Cursory
+{
+    /// <summary>
+    /// The networked prefabs every peer ships, from a Resources folder (as <see cref="LevelLibrary"/> does), so the
+    /// server (host or headless) finds them with no scene reference. <see cref="NetPrefabWriter"/> writes them.
+    /// </summary>
+    public static class NetPrefabs
+    {
+        /// <summary>The player object's resource path, without the extension (<see cref="CursorAvatar"/>).</summary>
+        public const string CursorAvatarResourcePath = "Unity.Cursory/CursorAvatar";
+
+        /// <summary>The networked-body template's resource path, without the extension (<see cref="NgoBodySync"/>).</summary>
+        public const string NetworkedBodyResourcePath = "Unity.Cursory/NetworkedBody";
+
+        /// <summary>The cursor player prefab; null if it has not been written yet (run the Unity.Cursory/Write Networked Prefabs menu).</summary>
+        public static GameObject LoadCursorAvatar() => Resources.Load<GameObject>(CursorAvatarResourcePath);
+
+        /// <summary>The networked-body template <see cref="NgoBodySync"/> instantiates per block/shape; null if it has not been written yet.</summary>
+        public static GameObject LoadNetworkedBody() => Resources.Load<GameObject>(NetworkedBodyResourcePath);
+
+        /// <summary>
+        /// Registers both prefabs with <paramref name="session"/> (idempotent) and wraps the networked-body one in
+        /// an <see cref="NgoBodySync"/>. Call before the session starts.
+        /// </summary>
+        /// <exception cref="System.ArgumentNullException"><paramref name="session"/> is null.</exception>
+        /// <exception cref="System.InvalidOperationException">Either prefab has not been written yet.</exception>
+        public static NgoBodySync RegisterAll(NetSession session)
+        {
+            if (session == null) throw new System.ArgumentNullException(nameof(session));
+
+            GameObject avatar = LoadCursorAvatar();
+            if (avatar == null)
+            {
+                throw new System.InvalidOperationException(
+                    "No " + CursorAvatarResourcePath + " prefab; run Unity.Cursory/Write Networked Prefabs first.");
+            }
+
+            GameObject body = LoadNetworkedBody();
+            if (body == null)
+            {
+                throw new System.InvalidOperationException(
+                    "No " + NetworkedBodyResourcePath + " prefab; run Unity.Cursory/Write Networked Prefabs first.");
+            }
+
+            if (!session.Prefabs.Contains(avatar))
+            {
+                session.Prefabs.Register(avatar);
+            }
+
+            NgoBodySync.Register(session, body);
+            return new NgoBodySync(session, body);
+        }
+    }
+}

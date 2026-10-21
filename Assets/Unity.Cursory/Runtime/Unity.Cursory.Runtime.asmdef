@@ -5,6 +5,7 @@
         "Unity.Cursory.Core",
         "Unity.Multiplayer",
         "Unity.Multiplayer.Core",
+        "Unity.Netcode.Runtime",
         "MindAttic.Capture.Unity",
         "Unity.InputSystem",
         "Unity.RenderPipelines.Core.Runtime",

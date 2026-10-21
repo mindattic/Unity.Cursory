@@ -162,10 +162,25 @@ interface so a compact snapshot can replace them without touching gameplay code.
   but not 2.0, two move 2.0, an edge grab turns a bar, nothing moves without a tick, and a dedicated-server
   session steps once per network tick) and `dotnet test Tests/Core.Tests` (`GrabGeometryTests`).
 
+- ✅ **Networked cursor and body sync** (UC-T7): `Runtime/Net/CursorAvatar` is the player object (a
+  `NetEntity`, one per connection, prefab `Resources/Unity.Cursory/CursorAvatar`). Its owner sends `[ToServer]`
+  intents only ([UC-LAW-1](#UC-LAW-1)): `Move(Vector2)` (unreliable, 30/s), `Grab`, `GrabShape`, `GrabWall`,
+  `GrabWireEnd`, `Release`; the server applies them to the bound `ServerSimulation`'s `PhysicsWorld` and writes
+  the `[Synced]` `Position` every peer draws. `Held`/`HeldId`/`HeldAnchor`/`HeldWireEndA` are the server's record
+  of what a cursor holds (a wall or wire end is bookkeeping for UC-T8/UC-T9). Code drives a cursor the same way
+  input does: `CursorAvatar.Local(session)`, `ForClient`, `All` and the static `Spawned`/`Despawned` events find
+  cursors on any peer. Bodies replicate through `IBodySync` (`NgoBodySync`: `NetworkTransform` x, y, rot z, half
+  precision, interpolated, plus `NetworkRigidbody2D`, prefab `Resources/Unity.Cursory/NetworkedBody`; the
+  [UC-LAW-7](#UC-LAW-7) exception), and static geometry goes out once per level as the `[ToOwner]`
+  `ReceiveGeometry` on spawn and after a load or reset (`GeometryBroadcast`, [UC-LAW-4](#UC-LAW-4)).
+  `NetPrefabs.RegisterAll(session)` registers both prefabs and returns the body sync; the editor menu
+  `Unity.Cursory/Write Networked Prefabs` (`NetPrefabWriter`) writes them. Verified by the PlayMode suites
+  `CursorAvatarHostAndClientTests` (host + client) and `CursorAvatarServerAndClientsTests` (dedicated server
+  + two clients).
+
 ## 7. Active frontier {#UC-§7}
 The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
-[USER_STORIES.md](USER_STORIES.md). Next: UC-T7 (the networked cursor as the player object, driving
-`PhysicsWorld` grabs, and server-authoritative body sync).
+[USER_STORIES.md](USER_STORIES.md). Next: UC-T8 (tethers and per-player settings on the UC-T7 cursor).
 
 ## 8. Glossary {#UC-§8}
 - **World pixel** — Cursory's unit; 100 to a metre ([UC-LAW-3](#UC-LAW-3)).
