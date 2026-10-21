@@ -7,8 +7,9 @@ need the engine are tested without Unity: `dotnet test Tests/Core.Tests`.
 The server's Physics2D sim has a PlayMode suite, `Unity.Cursory.PlayMode.Tests`: run it from the editor's Test
 Runner, or `Unity -batchmode -nographics -projectPath . -runTests -testPlatform PlayMode -assemblyNames Unity.Cursory.PlayMode.Tests`.
 
-Dedicated server: `./deploy.ps1` builds the headless Linux server package with Unity.Multiplayer and hands it
-to `mp-host` (`-Profile GenericVps|RunPod|Local`, `-DryRun`); see [docs/hosting.md](docs/hosting.md).
+Dedicated server: `mp-host game local` (or `./deploy.ps1 -Profile Local`) builds the headless Linux server package and
+runs it, with no Cursory build code: Unity.Multiplayer's `mp-host game` does it all (`-Profile GenericVps|RunPod|Local`,
+`-DryRun`); see [docs/hosting.md](docs/hosting.md).
 
 End-to-end: two headless bot clients join a dedicated server by code and solve level 2 together, in process
 (`BotEndToEndTests` in the PlayMode suite) and nightly under Docker Compose (`.github/workflows/nightly.yml`,

@@ -10,31 +10,40 @@ general picture (profiles, ports, TLS, updates) read the library's
 
 ## One command
 
+Cursory has no build or deploy code of its own (UM-T58). Unity.Multiplayer's `mp-host game` builds and deploys any
+game on the library; `deploy.ps1` is only a thin call to it, kept so the global `/deploy` router finds it.
+
 ```powershell
 ./deploy.ps1 -DryRun                     # see every step without building or touching a server
-./deploy.ps1                             # GenericVps (the default): your own UDP-capable Linux VPS
-./deploy.ps1 -Profile RunPod -RendezvousUrl http://<vps>:8080   # a RunPod pod over WebSocket
+./deploy.ps1 --public-address <vps ip>   # GenericVps (the default): your own UDP-capable Linux VPS
+./deploy.ps1 -Profile RunPod --rendezvous-url http://<vps>:8080   # a RunPod pod over WebSocket
 ./deploy.ps1 -Profile Local              # server + rendezvous on this PC with Docker Desktop
 ./deploy.ps1 -Profile Local -Down        # stop the local stack
+
+# the same, without the script (mp-host installed with Unity.Multiplayer's tools/install-mp-host.ps1):
+mp-host game local                       # from this folder; 'mp-host game down' stops it
+mp-host game deploy --dry-run
 ```
 
-`deploy.ps1` does two things and reimplements neither:
+`deploy.ps1` takes `-Profile` (any mp-host profile), `-DryRun`, `-SkipBuild` and `-Down`, and passes every other
+`mp-host game` option through as given (`--public-address`, `--rendezvous-url`, `--upnp`, `--development`, ...).
+It runs `$env:MP_HOST`, else the installed `mp-host`, else a `dotnet run` of `../Unity.Multiplayer/src/Hosting.Cli`.
 
-1. **Builds the server package** with Unity in batch mode:
-   `-executeMethod Unity.Cursory.EditorTools.ServerBuild.BuildFromCommandLine`. That opens
-   `Scenes/Main.unity` and calls the library's `ServerPackageBuild` (the same code as the editor menu
-   **MindAttic > Multiplayer > Build Server Package > GenericVps / RunPod**). The output is a headless
-   Linux x86_64 Dedicated Server build plus `server.json`, `start.sh`, a `Dockerfile` and `server-package.json`, written to
-   `Builds/ServerPackage/<GenericVps|RunPod>` (git-ignored). The Unity log goes beside it. This step needs
-   **Linux Dedicated Server Build Support** for Unity 6000.4.3f1.
-2. **Hands the package to `mp-host`**: `mp-host deploy --profile GenericVps|RunPod` builds the Docker image,
-   pushes it to GHCR and boots it next to rendezvous. `mp-host local up` renders a compose file for this machine.
+What `mp-host game` does for Cursory:
 
-`mp-host` is whatever `-MpHost` / `$env:MP_HOST` names, then `mp-host` on PATH, then a `dotnet run` of
-`Unity.Multiplayer/src/Hosting.Cli`. The Unity.Multiplayer checkout is found through
-`Packages/manifest.json`'s `file:` path, or `$env:UNITY_MULTIPLAYER_ROOT`. The Unity editor is `-Unity` /
-`$env:UNITY_EDITOR`, else Unity Hub's install of the version in `ProjectSettings/ProjectVersion.txt`.
+1. **Finds Unity 6000.4.3f1** from `ProjectSettings/ProjectVersion.txt` in Unity Hub's folders (`--unity <exe>` or
+   `$env:UNITY_EDITOR` override it). It needs **Linux Dedicated Server Build Support**.
+2. **Builds the server package** with the library's own batch entry point,
+   `Unity.Multiplayer.Editor.ServerPackageBuild.BuildFromCommandLine -serverScene Assets/Unity.Cursory/Scenes/Main.unity`
+   (the first Build Settings scene), the same code as **MindAttic > Multiplayer > Build Server Package**. The output is
+   a headless Linux x86_64 Dedicated Server build plus `server.json` (from Main.unity's `NetBootstrap`), `start.sh`, a
+   `Dockerfile` and `server-package.json` in `Builds/ServerPackage/<GenericVps|RunPod>` (git-ignored), with the
+   Unity log beside it.
+3. **Runs the mp-host pipeline**: `mp-host deploy --profile GenericVps|RunPod` builds the Docker image, pushes it to
+   GHCR and boots it next to rendezvous; `mp-host local up` renders a compose file for this machine.
 
+`mp-host.json` holds Cursory's only defaults: server name `cursory` (`cursory-local` for Local) and image
+`mindattic/unity-cursory`.
 ## The server scene
 
 `Scenes/Main.unity` is the one scene that both clients and the server boot, so that NGO scene sync matches. Its
@@ -60,22 +69,23 @@ mp-host credentials set-ssh --name cursory --host <vps ip> --user deploy --key <
 mp-host credentials set-runpod --key <RunPod API key>                                       # RunPod
 ```
 
-`-Name` (default `cursory`) is the vault name of the SSH target. `-DryRun` reads these credentials too, so the
-printed login and SSH lines are accurate. The rendezvous shared secret is `-RendezvousSecret` or
-`$env:MINDATTIC_RENDEZVOUS_SECRET`. Use the same value on every server that registers with one rendezvous.
-`deploy.ps1` masks it in everything it prints.
+`cursory` is the vault name of the SSH target; with it stored, GenericVps's public address defaults to its host.
+`-DryRun` reads these credentials too, so the printed login and SSH lines are accurate. The rendezvous shared secret
+comes from the vault (`mp-host credentials set-rendezvous`, generated and stored on the first real run) or
+`--rendezvous-secret`; every server that registers with one rendezvous uses the same value. mp-host masks it in
+everything it prints.
 
 ## Per profile
 
 | Profile | Package | Rendezvous | Notes |
 |---|---|---|---|
-| `GenericVps` (default) | GenericVps (UDP 7777) | beside the game on the box; `-RendezvousUrl` defaults to `http://<PublicAddress>:8080` | `-PublicAddress` is required (the box's IP). Updates are an in-place `docker compose up -d` |
-| `RunPod` | RunPod (WebSocket, TCP 7777) | elsewhere, so `-RendezvousUrl` is required (e.g. a GenericVps box) | The pod advertises `RUNPOD_PUBLIC_IP`/`RUNPOD_TCP_PORT_7777`. An update replaces the pod and drops its players |
-| `Local` | GenericVps | `docker build` of Unity.Multiplayer's `server/Rendezvous/Dockerfile` as `mindattic-rendezvous:local`, unless you pass `-RendezvousImage` | The game registers at `http://rendezvous:8080` inside the compose network. Players join by LAN IP, or resolve codes at `<LAN IP>:8080`. UPnP is off unless you pass `-Upnp`. A throwaway secret is made per run |
+| `GenericVps` (default) | GenericVps (UDP 7777) | beside the game on the box: `http://<public address>:8080` | `--public-address` is the box's IP (default: the stored SSH host). Updates are an in-place `docker compose up -d` |
+| `RunPod` | RunPod (WebSocket, TCP 7777) | elsewhere, so `--rendezvous-url` is required (e.g. a GenericVps box) | The pod advertises `RUNPOD_PUBLIC_IP`/`RUNPOD_TCP_PORT_7777`. An update replaces the pod and drops its players |
+| `Local` | GenericVps | `docker build` of Unity.Multiplayer's `server/Rendezvous/Dockerfile` as `mindattic-rendezvous:local` (the checkout `Packages/manifest.json` points at), unless you pass `--rendezvous-image` | The game registers at `http://rendezvous:8080` inside the compose network. Players join by LAN IP, or resolve codes at `<LAN IP>:8080`. UPnP is off unless you pass `--upnp` |
 
-Use `-SkipBuild` to reuse the package that's already built, `-Image`/`-Tag` to choose the GHCR repository
-(default `mindattic/unity-cursory:latest`), and `-Development` for a development player.
-
+Use `-SkipBuild` to reuse the package that's already built, `--image`/`--tag` to choose another GHCR repository,
+and `--development` for a development player. `mp-host game status|logs|update|destroy --yes` act on the server
+the last `game deploy` from this machine made.
 ## End-to-end test: bots {#end-to-end-test-bots}
 
 Two headless bot clients prove the whole path every night: a dedicated server serves level 2 (Mass 2.0, which one

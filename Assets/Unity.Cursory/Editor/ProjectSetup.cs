@@ -1,4 +1,5 @@
 using System.IO;
+using Unity.Multiplayer.Editor;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -114,6 +115,34 @@ namespace Unity.Cursory.EditorTools
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
             Debug.Log("[Unity.Cursory] Scene written to " + ScenePath);
+        }
+
+        /// <summary>
+        /// Networks <see cref="ScenePath"/>, the one scene clients and the dedicated server both boot (library
+        /// <see cref="NetSceneSetup"/>), and adds Cursory's <see cref="LevelServer"/>; rerunning changes nothing. The
+        /// server package itself needs no Cursory code: <c>mp-host game</c> builds it with the library's batch entry
+        /// point, which opens this scene as the first Build Settings scene (UM-T58).
+        /// </summary>
+        [MenuItem("Unity.Cursory/Set Up Server Scene")]
+        public static void SetUpServerScene()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            NetSceneSetupResult result = NetSceneSetup.Run(scene, new NetSceneSetupOptions());
+            bool changed = result.Changes.Count > 0;
+            if (result.Root.GetComponent<LevelServer>() == null)
+            {
+                Undo.AddComponent<LevelServer>(result.Root);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+                AssetDatabase.SaveAssets();
+            }
+
+            Debug.Log("[Unity.Cursory] Server scene " + (changed ? "set up: " + string.Join(" ", result.Changes) : "already set up."));
         }
     }
 }

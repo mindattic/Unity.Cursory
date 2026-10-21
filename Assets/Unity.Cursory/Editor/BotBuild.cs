@@ -8,7 +8,7 @@ namespace Unity.Cursory.EditorTools
 {
     /// <summary>
     /// The Linux player UC-T14's nightly compose smoke runs (smoke/docker-compose.yml): one StandaloneLinux64 build of
-    /// <see cref="ServerBuild.ServerScene"/> plays every role, as in Unity.Multiplayer's own nightly smoke. Launched
+    /// <see cref="ProjectSetup.ScenePath"/> plays every role, as in Unity.Multiplayer's own nightly smoke. Launched
     /// with <c>-mode server -level 2 -joincodefile ...</c> it is the dedicated server; with <c>-bot A|B
     /// -joincodefile ...</c> it is a <see cref="BotDriver"/>. A plain player rather than the Dedicated Server
     /// subtarget, because GameCI's editor image has no Linux Dedicated Server build support.
@@ -33,7 +33,7 @@ namespace Unity.Cursory.EditorTools
                 Directory.CreateDirectory(output);
                 var options = new BuildPlayerOptions
                 {
-                    scenes = new[] { ServerBuild.ServerScene },
+                    scenes = new[] { ProjectSetup.ScenePath },
                     locationPathName = Path.Combine(output, ExecutableName),
                     target = BuildTarget.StandaloneLinux64,
                     subtarget = (int)(string.Equals(Arg("-botSubtarget"), "server", StringComparison.OrdinalIgnoreCase)
