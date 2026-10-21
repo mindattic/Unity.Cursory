@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 548058964672595814}
   - component: {fileID: 3702815518260270771}
   m_Layer: 0
-  m_Name: VoteBoard
+  m_Name: WhistleBoard
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -69,5 +69,5 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8351d46a3c5c9d64fb4525f1bd3a1e7a, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Unity.Cursory.Runtime::Unity.Cursory.VoteBoard
+  m_EditorClassIdentifier: Unity.Cursory.Runtime::Unity.Cursory.WhistleBoard
   ShowTopMostFoldoutHeaderGroup: 1

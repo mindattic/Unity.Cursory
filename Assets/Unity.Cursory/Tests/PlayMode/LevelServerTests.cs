@@ -1,5 +1,6 @@
 using System.Collections;
 using NUnit.Framework;
+using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
 using Unity.Multiplayer.Testing;
@@ -74,6 +75,8 @@ namespace Unity.Cursory.Tests
             Assert.That(server.Simulation.Loader, Is.SameAs(server.Loader), "GeometryBroadcast reads the loader");
             Assert.That(server.Votes, Is.Not.Null, "the server spawns the vote board");
             Assert.That(server.Votes.IsSpawned && server.Votes.Box != null, Is.True, "and serves it (UC-T10)");
+            Assert.That(server.Votes.Box.TryGetKind(LevelVotes.ResetKind, out _) && server.Votes.Box.TryGetKind(LevelVotes.LevelKind, out _), Is.True, "with Cursory's reset and level kinds (UM-T54)");
+            Assert.That(server.Whistles != null && server.Whistles.IsSpawned, Is.True, "and the whistle board");
             Assert.That(manager.NetworkConfig.PlayerPrefab, Is.Not.Null.And.Matches<GameObject>(p => p.GetComponent<CursorAvatar>() != null),
                 "the cursor avatar is the player object");
             Assert.That(server.LevelState, Is.Not.Null, "UC-T9: the server runs the goal pass");

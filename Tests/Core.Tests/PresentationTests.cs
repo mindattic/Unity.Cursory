@@ -236,21 +236,6 @@ namespace Unity.Cursory.Core.Tests
     public class HudTextTests
     {
         [Test]
-        public void Vote_words()
-        {
-            var reset = new VoteStatus(1, VoteKind.Reset, 0, 0, 1, 0, 3, 2, 15);
-            var level = new VoteStatus(2, VoteKind.SelectLevel, 7, 0, 1, 1, 3, 2, 9);
-            Assert.That(HudText.VoteTitle(reset), Is.EqualTo("Reset the level?"));
-            Assert.That(HudText.VoteTitle(level), Is.EqualTo("Switch to Level 7?"));
-            Assert.That(HudText.VoteTally(level), Is.EqualTo("Yes 1 · No 1 · needs 2 of 3 · 9 s"));
-            Assert.That(HudText.VoteTitle(null), Is.Empty);
-            Assert.That(HudText.CanVote(VoteChoice.Undecided), Is.True);
-            Assert.That(HudText.CanVote(VoteChoice.Yes), Is.False, "Cursory disables the buttons once you have voted");
-            Assert.That(HudText.CanVote(VoteChoice.NotAVoter), Is.False);
-            Assert.That(HudText.VoteEnded(VoteKind.SelectLevel, 3, VoteEnding.Passed), Is.EqualTo("Switch to Level 3: passed"));
-        }
-
-        [Test]
         public void Level_options_and_banner()
         {
             Assert.That(HudText.LevelOptions(3), Is.EqualTo(new[] { "Level 1", "Level 2", "Level 3" }));

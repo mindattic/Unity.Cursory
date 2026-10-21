@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Unity.Cursory.Core
 {
     /// <summary>
-    /// The HUD's words, engine-free (Cursory's <c>renderVote</c>, <c>syncLevelDropdown</c> and <c>showLevelBanner</c>),
+    /// The HUD's words, engine-free (Cursory's <c>syncLevelDropdown</c> and <c>showLevelBanner</c>; the vote overlay's are Unity.Multiplayer's <c>VoteText</c>),
     /// so the Unity HUD only places them.
     /// </summary>
     public static class HudText
@@ -18,48 +18,6 @@ namespace Unity.Cursory.Core
             var options = new List<string>(Math.Max(0, levelCount));
             for (var n = 1; n <= levelCount; n++) options.Add("Level " + n);
             return options;
-        }
-
-        /// <summary>The vote overlay's question: "Reset the level?" or "Switch to Level N?".</summary>
-        public static string VoteTitle(VoteStatus status)
-        {
-            if (status == null) return "";
-            return status.Kind == VoteKind.SelectLevel ? "Switch to Level " + status.TargetLevel + "?" : "Reset the level?";
-        }
-
-        /// <summary>The overlay's tally: "Yes 1 · No 0 · needs 2 of 3 · 14 s".</summary>
-        public static string VoteTally(VoteStatus status)
-        {
-            if (status == null) return "";
-            return "Yes " + status.Yes + " · No " + status.No + " · needs " + status.Quorum + " of " + status.Voters + " · " + status.SecondsLeft + " s";
-        }
-
-        /// <summary>A line for how the local player stands: whether they may still vote.</summary>
-        public static string VoteStanding(VoteChoice choice)
-        {
-            switch (choice)
-            {
-                case VoteChoice.Yes: return "You voted Yes";
-                case VoteChoice.No: return "You voted No";
-                case VoteChoice.Undecided: return "Your vote";
-                default: return "You joined after this vote started";
-            }
-        }
-
-        /// <summary>True when the local player may still press Yes or No (Cursory disables both once you have voted).</summary>
-        public static bool CanVote(VoteChoice choice) => choice == VoteChoice.Undecided;
-
-        /// <summary>A toast for how a vote ended.</summary>
-        public static string VoteEnded(VoteKind kind, int targetLevel, VoteEnding ending)
-        {
-            string what = kind == VoteKind.SelectLevel ? "Switch to Level " + targetLevel : "Reset";
-            switch (ending)
-            {
-                case VoteEnding.Passed: return what + ": passed";
-                case VoteEnding.TimedOut: return what + ": timed out";
-                case VoteEnding.Abandoned: return what + ": abandoned";
-                default: return what + ": rejected";
-            }
         }
 
         /// <summary>

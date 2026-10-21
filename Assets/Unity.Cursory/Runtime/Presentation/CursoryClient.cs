@@ -16,7 +16,8 @@ namespace Unity.Cursory
     /// 0.1 to 4), the pointer (<see cref="PointerInput"/>: grab, release, and click-vs-drag whistles), the world
     /// (<see cref="WorldView"/>), the HUD (<see cref="CursoryHud"/>, from MindAttic Components), the minimap
     /// (<see cref="MinimapView"/>) and whistle sound (<see cref="WhistleAudio"/>). It sends only intents (BIBLE
-    /// UC-LAW-1): <see cref="CursorAvatar"/>'s Move and grabs, and the <see cref="VoteBoard"/>'s votes and whistles.
+    /// UC-LAW-1): <see cref="CursorAvatar"/>'s Move and grabs, the <see cref="WhistleBoard"/>'s whistles and the room's votes on the
+    /// library's <see cref="VoteBoard"/> (UM-T54), whose ready-made overlay shows each vote.
     /// </summary>
     /// <remarks>
     /// <para>The menus are the library's drop-in front end (UC-T12): the scene's <see cref="NetFrontEnd"/> gives the main
@@ -45,6 +46,7 @@ namespace Unity.Cursory
         private bool _wasBlocked = true;
         private TopDownCamera _camera;
         private VoteBoard _board;
+        private WhistleBoard _whistles;
         private LevelStateSync _levelState;
         private float _nextMove;
         private float _nextLookup;
@@ -103,8 +105,11 @@ namespace Unity.Cursory
         /// <summary>This peer's own cursor, or null before it has spawned (and always on a dedicated server).</summary>
         public CursorAvatar LocalAvatar => CursorAvatar.Local(_session);
 
-        /// <summary>The room's vote board as this peer sees it; null until it has spawned here.</summary>
+        /// <summary>The room's vote board (Unity.Multiplayer's, UM-T54) as this peer sees it; null until it has spawned here.</summary>
         public VoteBoard Board => _board;
+
+        /// <summary>The room's whistle board as this peer sees it; null until it has spawned here.</summary>
+        public WhistleBoard Whistles => _whistles;
 
         /// <summary>The room's level state as this peer sees it; null until it has spawned here.</summary>
         public LevelStateSync LevelState => _levelState;
@@ -261,7 +266,7 @@ namespace Unity.Cursory
             CursorAvatar me = LocalAvatar;
             World.AddRipple(worldPx, me != null ? me.PlayerColor : Color.white);
             Audio.Play(WhistleToneOf(me));
-            if (_board != null && _board.IsSpawned) _board.Whistle(worldPx);
+            if (_whistles != null && _whistles.IsSpawned) _whistles.Whistle(worldPx);
         }
 
         private int WhistleToneOf(CursorAvatar me) =>
@@ -301,33 +306,43 @@ namespace Unity.Cursory
 
         private void OnDestroy()
         {
-            if (_board != null) _board.Whistled -= OnWhistled;
+            if (_whistles != null) _whistles.Whistled -= OnWhistled;
             Hud?.Destroy();
             Minimap?.Destroy();
         }
 
-        /// <summary>Finds this session's board and level state as they spawn (and again after a new session).</summary>
+        /// <summary>Finds this session's vote board, whistle board and level state as they spawn (and again after a new session).</summary>
         private void FindRoomEntities()
         {
             bool boardOk = _board != null && _board.IsSpawned;
+            bool whistlesOk = _whistles != null && _whistles.IsSpawned;
             bool stateOk = _levelState != null && _levelState.IsSpawned;
-            if ((boardOk && stateOk) || Time.unscaledTime < _nextLookup) return;
+            if ((boardOk && whistlesOk && stateOk) || Time.unscaledTime < _nextLookup) return;
             _nextLookup = Time.unscaledTime + 0.25f;
 
             if (!boardOk)
             {
-                VoteBoard board = null;
-                foreach (VoteBoard candidate in FindObjectsByType<VoteBoard>())
-                {
-                    if (candidate.IsSpawned && candidate.Session == _session) board = candidate;
-                }
-
+                VoteBoard board = VoteBoard.For(_session);
                 if (_board != board)
                 {
-                    if (_board != null) _board.Whistled -= OnWhistled;
                     _board = board;
-                    if (_board != null) _board.Whistled += OnWhistled;
                     Hud.Bind(_board);
+                }
+            }
+
+            if (!whistlesOk)
+            {
+                WhistleBoard whistles = null;
+                foreach (WhistleBoard candidate in FindObjectsByType<WhistleBoard>())
+                {
+                    if (candidate.IsSpawned && candidate.Session == _session) whistles = candidate;
+                }
+
+                if (_whistles != whistles)
+                {
+                    if (_whistles != null) _whistles.Whistled -= OnWhistled;
+                    _whistles = whistles;
+                    if (_whistles != null) _whistles.Whistled += OnWhistled;
                 }
             }
 

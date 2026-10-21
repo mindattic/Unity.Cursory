@@ -144,9 +144,10 @@ interface so a compact snapshot can replace them without touching gameplay code.
   them as `LevelAsset` ScriptableObjects (`Assets/Unity.Cursory/Levels/L01..L14.asset`) and the ordered
   `LevelLibrary` (`Assets/Unity.Cursory/Resources/Unity.Cursory/LevelLibrary.asset`, found with
   `LevelLibrary.Load()`). `LevelLoader` holds the current level, plays a copy (`World`), and raises the
-  geometry-resend and level-banner flags on load and reset; `VoteBox` runs reset and level votes against it.
+  geometry-resend and level-banner flags on load and reset; the room's reset and level votes act on it through
+  `Core/Levels/LevelVotes` (the vote rules themselves moved to Unity.Multiplayer's votes kit in UM-T54).
   Verified by `dotnet test Tests/Core.Tests`: `LevelSeedTests`, `LevelAssetTests` (the committed assets read
-  from their YAML equal the seeds), `LevelLoaderTests`, `VoteAndLevelTests` (ported from Cursory.Tests) and
+  from their YAML equal the seeds), `LevelLoaderTests`, `LevelVotesTests` (UC-T5's `VoteAndLevelTests`, ported from Cursory.Tests, until UM-T54) and
   `SolvabilityTests` (ported from Cursory.Tests: the block levels are auto-solved by two cursors and the
   shape levels 3, 9 and 12 make real progress, through `PullRoom`, a headless stand-in for the physics built
   on `Tuning`; UC-T6 checks the real Physics2D sim).
@@ -201,20 +202,22 @@ interface so a compact snapshot can replace them without touching gameplay code.
   joiner gets the wires), `CursorAvatarServerAndClientsTests.GrabWireEnd_FollowsTheCursor_AndSnapsOntoATerminalOnRelease`
   and `LevelServerTests`.
 
-- ✅ **Votes and whistles** (UC-T10): `Runtime/Votes/VoteBoard`, a scene-level, server-owned `NetEntity`
-  apart from the player cursors. Any player sends `StartResetVote()`, `StartLevelVote(level)`, `CastVote(yes)`
-  and `Whistle(worldPx)` (`[ToServer]`, no ownership, rate-limited); the server runs them through Core's
-  `VoteBox` (2/3 quorum `ceil(roster × 2 / 3)`, early rejection once the quorum is unreachable, 15 s timeout on
-  the session's tick clock) after `VoteBoard.Serve(loader)`; `LevelServer` spawns the board (prefab
-  `Resources/Unity.Cursory/VoteBoard`, registered by `NetPrefabs.RegisterAll`) and serves it against its loader on
-  every server session. A passing reset or level vote resets or loads the level in the `LevelLoader`, raising its
-  geometry resend. A player who disconnects mid-vote is dropped from it and the quorum recomputed
-  (`VoteBox.RemoveVoter`). The vote's status is `[Synced]` (late joiners see it), ballots and the end go out as
-  `[ToClients]`, and a whistle is broadcast `[ToClients]` with the whistler's colour and tone (`Core/Model/WhistleTone`:
-  Cursory's 12 tones, 440 Hz + 35 Hz a step, keyed by seat). The HUD binds to `Status` (`VoteStatus`),
-  `LocalChoice`/`ChoiceOf`, and the events `VoteChanged`, `VoteEnded` and `Whistled`. Verified by
-  `dotnet test Tests/Core.Tests` (`VoteBoxTests`, `WhistleToneTests`, plus UC-T5's `VoteAndLevelTests`) and the
-  PlayMode suite (`VoteBoardTests`: a host and two clients vote over loopback, and a whistle reaches every peer).
+- ✅ **Votes and whistles** (UC-T10; votes on the library since UM-T54): the room's votes are Unity.Multiplayer's
+  votes kit. `LevelServer` spawns the library's `VoteBoard` (its own prefab, registered by `NetPrefabs.RegisterAll`
+  through `VoteBoard.RegisterPrefab`) on every server session and registers Cursory's two kinds with
+  `LevelServer.AddVoteKinds`: `reset` ("Reset the level?", re-seeds the level) and `level` ("Switch to Level N?",
+  the number payload; refused for the current level or one that doesn't exist), worded and checked by
+  `Core/Levels/LevelVotes`. The library runs the rules Cursory had in its own `VoteBox` (2/3 quorum rounded up,
+  early rejection once the quorum is unreachable, 15 s on the session's tick clock, a leaver dropped and the quorum
+  recomputed, one vote at a time) and the HUD's toolbar starts votes with `StartVote`; the vote itself shows in the
+  library's `VoteOverlay` (question, tally, Yes/No, result toast). Whistles stay Cursory's: `Runtime/Whistles/WhistleBoard`,
+  a scene-level, server-owned `NetEntity` (prefab `Resources/Unity.Cursory/WhistleBoard`) whose `Whistle(worldPx)`
+  (`[ToServer]`, no ownership, rate-limited) is broadcast `[ToClients]` with the whistler's colour and tone
+  (`Core/Model/WhistleTone`: Cursory's 12 tones, 440 Hz + 35 Hz a step, keyed by seat). Verified by
+  `dotnet test Tests/Core.Tests` (`LevelVotesTests`, `WhistleToneTests`), Unity.Multiplayer's own vote suites, and the
+  PlayMode suite (`WhistleBoardTests`: Cursory's level and reset votes over loopback with a host and two clients,
+  refusals with their reasons, and a whistle reaching every peer; `PresentationTests`: the HUD starting votes and the
+  library overlay showing them).
 
 - ✅ **Level reload rebuilds the physics** (UC-T20): on the tick after the `LevelLoader` loads or resets a level
   (a passed vote, or any caller), `ServerSimulation.RebuildWorld` makes every cursor let go

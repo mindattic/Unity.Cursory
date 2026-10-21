@@ -5,6 +5,7 @@ using TMPro;
 using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
+using Unity.Multiplayer.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,10 +14,10 @@ namespace Unity.Cursory
     /// <summary>
     /// The in-game HUD (UC-T11, Cursory's room HUD), built entirely from MindAttic Components: a top
     /// <see cref="MaToolbar"/> with the level dropdown (<see cref="MaSelect"/>, picking a level starts a level vote),
-    /// Reset (starts a reset vote), the connection pill (<see cref="MaTag"/>) and a pause button; the vote overlay (a
-    /// <see cref="MaPanel"/> with the question, the tally and Yes/No buttons); the level banner (a panel that shows a
-    /// level's signpost for <see cref="HudText.BannerSeconds"/> when the level changes); and toasts when a vote ends or
-    /// the level is won.
+    /// Reset (starts a reset vote), the connection pill (<see cref="MaTag"/>) and a pause button; the level banner (a
+    /// panel that shows a level's signpost for <see cref="HudText.BannerSeconds"/> when the level changes); and a toast when
+    /// the level is won. The vote itself (question, tally, Yes/No, result toast) is Unity.Multiplayer's ready-made
+    /// <see cref="VoteOverlay"/> on the room's <see cref="VoteBoard"/> (UM-T54).
     /// </summary>
     /// <remarks>
     /// It only reads replicated state and sends intents: <see cref="Bind(VoteBoard)"/> to the room's board and
@@ -25,9 +26,6 @@ namespace Unity.Cursory
     /// </remarks>
     public sealed class CursoryHud
     {
-        /// <summary>Gap between the toolbar and the vote overlay, in canvas units.</summary>
-        private const float OverlayTop = 128f;
-
         private readonly NetSession _session;
         private VoteBoard _board;
         private LevelStateSync _level;
@@ -55,18 +53,8 @@ namespace Unity.Cursory
 
         public MaIconButton PauseButton { get; private set; }
 
-        /// <summary>The vote overlay; visible only while a vote runs.</summary>
-        public MaPanel VoteOverlay { get; private set; }
-
-        public MaText VoteTitle { get; private set; }
-
-        public MaText VoteTally { get; private set; }
-
-        public MaText VoteStanding { get; private set; }
-
-        public MaButton YesButton { get; private set; }
-
-        public MaButton NoButton { get; private set; }
+        /// <summary>The library's vote overlay on the bound board (below the toolbar); null until a board is bound.</summary>
+        public VoteOverlay VoteOverlay { get; private set; }
 
         /// <summary>The level banner; visible for a few seconds after the level changes.</summary>
         public MaPanel Banner { get; private set; }
@@ -110,32 +98,27 @@ namespace Unity.Cursory
             ConnectionPill = Toolbar.Add(MaTag.Create(Toolbar, "Connecting…", TagTone.Warning));
             PauseButton = Toolbar.AddIconButton(MaIcon.Pause, () => PauseRequested?.Invoke(), "Menu (Esc)");
 
-            VoteOverlay = MaPanel.Create(Canvas, PanelStyle.Surface, "Vote Overlay");
-            Place(VoteOverlay.RectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -OverlayTop), 760f);
-            Column(VoteOverlay.gameObject);
-            VoteTitle = MaText.Create(VoteOverlay, "", TextStyle.Heading, TextAlignmentOptions.Center);
-            VoteTally = MaText.Create(VoteOverlay, "", TextStyle.Label, TextAlignmentOptions.Center);
-            VoteStanding = MaText.Create(VoteOverlay, "", TextStyle.Caption, TextAlignmentOptions.Center);
-            var buttons = MaRow.Create(VoteOverlay);
-            YesButton = buttons.AddButton("Yes", () => Cast(true), ButtonVariant.Primary, MaIcon.Check);
-            NoButton = buttons.AddButton("No", () => Cast(false), ButtonVariant.Danger, MaIcon.Close);
-            VoteOverlay.Visible = false;
-
             Banner = MaPanel.Create(Canvas, PanelStyle.Surface, "Level Banner");
-            Place(Banner.RectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, 1100f);   // below the vote overlay
+            Place(Banner.RectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, 1100f);   // mid-screen, below the vote overlay
             Column(Banner.gameObject);
             BannerTitle = MaText.Create(Banner, "", TextStyle.Title, TextAlignmentOptions.Center);
             BannerSubtitle = MaText.Create(Banner, "", TextStyle.Muted, TextAlignmentOptions.Center);
             Banner.Visible = false;
         }
 
-        /// <summary>Shows and votes on <paramref name="board"/> (null unbinds).</summary>
+        /// <summary>Starts votes on <paramref name="board"/> and shows them through its <see cref="VoteOverlay"/> (null unbinds).</summary>
         public void Bind(VoteBoard board)
         {
             if (_board == board) return;
             if (_board != null) _board.VoteEnded -= OnVoteEnded;
+            if (VoteOverlay != null) VoteOverlay.Close();
+            VoteOverlay = null;
             _board = board;
-            if (_board != null) _board.VoteEnded += OnVoteEnded;
+            if (_board != null)
+            {
+                _board.VoteEnded += OnVoteEnded;
+                VoteOverlay = VoteOverlay.Create(_board);   // the one the front end wired, if it already did
+            }
         }
 
         /// <summary>Shows <paramref name="level"/>'s level and win (null unbinds).</summary>
@@ -147,7 +130,7 @@ namespace Unity.Cursory
             if (_level != null) _level.Won += OnWon;
         }
 
-        /// <summary>Mirrors the bound state now: connection pill, level dropdown and banner, vote overlay.</summary>
+        /// <summary>Mirrors the bound state now: connection pill, level dropdown and banner (the vote overlay refreshes itself).</summary>
         public void Refresh()
         {
             var (pill, tone) = ConnectionPillText.Describe(_session != null ? _session.State : SessionState.Idle, _session != null && _session.IsHost);
@@ -166,19 +149,6 @@ namespace Unity.Cursory
                 ShowBanner(level);   // on joining, and on every load or switch
             }
             if (Banner.Visible && Time.unscaledTime >= _bannerUntil) Banner.Visible = false;
-
-            VoteStatus vote = _board != null && _board.IsSpawned ? _board.Status : null;
-            VoteOverlay.Visible = vote != null;
-            if (vote != null)
-            {
-                VoteChoice mine = _board.LocalChoice;
-                VoteTitle.Text = HudText.VoteTitle(vote);
-                VoteTally.Text = HudText.VoteTally(vote);
-                VoteStanding.Text = HudText.VoteStanding(mine);
-                bool canVote = HudText.CanVote(mine);
-                YesButton.Interactable = canVote;
-                NoButton.Interactable = canVote;
-            }
         }
 
         /// <summary>Shows level <paramref name="number"/>'s banner for <see cref="HudText.BannerSeconds"/>.</summary>
@@ -207,7 +177,7 @@ namespace Unity.Cursory
             int level = index + 1;
             if (_board != null && _board.IsSpawned && level != _shownLevel && level >= 1 && level <= _levelCount)
             {
-                _board.StartLevelVote(level);
+                _board.StartVote(LevelVotes.LevelKind, level);
             }
 
             // The dropdown shows the room's level; the overlay shows the proposal.
@@ -216,19 +186,14 @@ namespace Unity.Cursory
 
         private void OnReset()
         {
-            if (_board != null && _board.IsSpawned) _board.StartResetVote();
+            if (_board != null && _board.IsSpawned) _board.StartVote(LevelVotes.ResetKind);
         }
 
-        private void Cast(bool yes)
+        private void OnVoteEnded(VoteResult result)
         {
-            if (_board != null && _board.IsSpawned) _board.CastVote(yes);
-        }
-
-        private void OnVoteEnded(VoteKind kind, int targetLevel, VoteEnding ending)
-        {
-            MaToast.Show(HudText.VoteEnded(kind, targetLevel, ending), ending == VoteEnding.Passed ? ToastKind.Success : ToastKind.Info);
-            // A level switch shows its banner when the new level number arrives; a reset keeps the number, so show it here.
-            if (ending == VoteEnding.Passed && kind == VoteKind.Reset && _shownLevel > 0) ShowBanner(_shownLevel);
+            // The overlay toasts the result. A level switch shows its banner when the new level number arrives; a reset
+            // keeps the number, so show it here.
+            if (result.Passed && result.Kind == LevelVotes.ResetKind && _shownLevel > 0) ShowBanner(_shownLevel);
         }
 
         private void OnWon()

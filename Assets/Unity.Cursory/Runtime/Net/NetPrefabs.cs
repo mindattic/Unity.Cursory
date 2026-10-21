@@ -18,11 +18,11 @@ namespace Unity.Cursory
         /// <summary>The level-state entity's resource path, without the extension (<see cref="LevelStateSync"/>, UC-T9).</summary>
         public const string LevelStateResourcePath = "Unity.Cursory/LevelState";
 
-        /// <summary>The scene's vote and whistle board's resource path, without the extension (<see cref="VoteBoard"/>, UC-T10).</summary>
-        public const string VoteBoardResourcePath = "Unity.Cursory/VoteBoard";
+        /// <summary>The scene's whistle board's resource path, without the extension (<see cref="WhistleBoard"/>, UC-T10).</summary>
+        public const string WhistleBoardResourcePath = "Unity.Cursory/WhistleBoard";
 
-        /// <summary>The vote board prefab <see cref="LevelServer"/> spawns once per session; null if it has not been written yet.</summary>
-        public static GameObject LoadVoteBoard() => Resources.Load<GameObject>(VoteBoardResourcePath);
+        /// <summary>The whistle board prefab <see cref="LevelServer"/> spawns once per session; null if it has not been written yet.</summary>
+        public static GameObject LoadWhistleBoard() => Resources.Load<GameObject>(WhistleBoardResourcePath);
 
         /// <summary>The cursor player prefab; null if it has not been written yet (run the Unity.Cursory/Write Networked Prefabs menu).</summary>
         public static GameObject LoadCursorAvatar() => Resources.Load<GameObject>(CursorAvatarResourcePath);
@@ -34,7 +34,8 @@ namespace Unity.Cursory
         public static GameObject LoadLevelState() => Resources.Load<GameObject>(LevelStateResourcePath);
 
         /// <summary>
-        /// Registers the cursor, networked-body, level-state and vote-board prefabs with <paramref name="session"/> (idempotent) and wraps the networked-body one in
+        /// Registers the cursor, networked-body, level-state and whistle-board prefabs, and the library's <see cref="VoteBoard"/> (UM-T54), with
+        /// <paramref name="session"/> (idempotent) and wraps the networked-body one in
         /// an <see cref="NgoBodySync"/>. Call before the session starts.
         /// </summary>
         /// <exception cref="System.ArgumentNullException"><paramref name="session"/> is null.</exception>
@@ -74,17 +75,19 @@ namespace Unity.Cursory
                 session.Prefabs.Register(levelState);
             }
 
-            GameObject board = LoadVoteBoard();
-            if (board == null)
+            GameObject whistles = LoadWhistleBoard();
+            if (whistles == null)
             {
                 throw new System.InvalidOperationException(
-                    "No " + VoteBoardResourcePath + " prefab; run Unity.Cursory/Write Networked Prefabs first.");
+                    "No " + WhistleBoardResourcePath + " prefab; run Unity.Cursory/Write Networked Prefabs first.");
             }
 
-            if (!session.Prefabs.Contains(board))
+            if (!session.Prefabs.Contains(whistles))
             {
-                session.Prefabs.Register(board);
+                session.Prefabs.Register(whistles);
             }
+
+            VoteBoard.RegisterPrefab(session);
 
             NgoBodySync.Register(session, body);
             return new NgoBodySync(session, body);

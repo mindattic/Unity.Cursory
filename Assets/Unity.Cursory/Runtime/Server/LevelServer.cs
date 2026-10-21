@@ -40,8 +40,14 @@ namespace Unity.Cursory
         /// <summary>The tick-stepped simulation, or null until a server session starts.</summary>
         public ServerSimulation Simulation { get; private set; }
 
-        /// <summary>The spawned vote and whistle board (UC-T10), served against <see cref="Loader"/>; null until a server session starts.</summary>
+        /// <summary>
+        /// The room's vote board (Unity.Multiplayer's, UM-T54), served with Cursory's reset and level kinds
+        /// (<see cref="LevelVotes"/>) against <see cref="Loader"/>; null until a server session starts.
+        /// </summary>
         public VoteBoard Votes { get; private set; }
+
+        /// <summary>The spawned whistle board (UC-T10); null until a server session starts.</summary>
+        public WhistleBoard Whistles { get; private set; }
 
         /// <summary>True while a server session is running a level.</summary>
         public bool IsServing => Simulation != null && Simulation.World != null;
@@ -108,24 +114,48 @@ namespace Unity.Cursory
             _levelState = new LevelStateServer(Simulation, SpawnLevelState());
             _levelState.Track(Loader.World);
             SpawnVoteBoard();
+            SpawnWhistleBoard();
             Debug.Log("[Unity.Cursory] Serving level " + Loader.CurrentLevel + " of " + Loader.LevelCount + ".");
         }
 
-        /// <summary>Spawns the scene's one <see cref="VoteBoard"/> (owned by the server) and serves it against <see cref="Loader"/>.</summary>
+        /// <summary>
+        /// Spawns the room's <see cref="VoteBoard"/> from the library's prefab and registers Cursory's two kinds: reset
+        /// (re-seed the level) and level (load the level in the number payload; refused for the current level or one that
+        /// doesn't exist). The library runs the rules: 2/3 of the players in the room, 15 s, one vote at a time.
+        /// </summary>
         private void SpawnVoteBoard()
         {
-            GameObject prefab = NetPrefabs.LoadVoteBoard();
+            Votes = AddVoteKinds(VoteBoard.Spawn(_session), Loader);
+        }
+
+        /// <summary>Registers Cursory's reset and level vote kinds on <paramref name="board"/>, acting on <paramref name="loader"/>.</summary>
+        public static VoteBoard AddVoteKinds(VoteBoard board, LevelLoader loader)
+        {
+            if (board == null) throw new System.ArgumentNullException(nameof(board));
+            if (loader == null) throw new System.ArgumentNullException(nameof(loader));
+            return board
+                .AddKind(new VoteKind(LevelVotes.ResetKind, LevelVotes.ResetTitle) { Passed = v => LevelVotes.ApplyReset(loader) })
+                .AddKind(new VoteKind(LevelVotes.LevelKind, r => LevelVotes.LevelTitle(r.Number))
+                {
+                    Check = r => LevelVotes.CheckLevel(loader, r.Number),
+                    Passed = v => LevelVotes.ApplyLevel(loader, v.Number),
+                });
+        }
+
+        /// <summary>Spawns the scene's one <see cref="WhistleBoard"/> (owned by the server).</summary>
+        private void SpawnWhistleBoard()
+        {
+            GameObject prefab = NetPrefabs.LoadWhistleBoard();
             if (prefab == null)
             {
-                Debug.LogError("[Unity.Cursory] No " + NetPrefabs.VoteBoardResourcePath + " prefab; the server runs no votes.", this);
+                Debug.LogError("[Unity.Cursory] No " + NetPrefabs.WhistleBoardResourcePath + " prefab; the server runs no whistles.", this);
                 return;
             }
 
             GameObject board = Instantiate(prefab);
-            board.name = "VoteBoard";
+            board.name = "WhistleBoard";
             board.GetComponent<NetworkObject>().Spawn();
-            Votes = board.GetComponent<VoteBoard>();
-            Votes.Serve(Loader);
+            Whistles = board.GetComponent<WhistleBoard>();
         }
 
         /// <summary>The level <see cref="LevelArg"/> names in <paramref name="args"/> (<c>-level 2</c> or <c>-level=2</c>), else <paramref name="fallback"/>.</summary>
@@ -169,6 +199,13 @@ namespace Unity.Cursory
                 if (Votes.IsSpawned) Votes.NetworkObject.Despawn(true);
                 else Destroy(Votes.gameObject);
                 Votes = null;
+            }
+
+            if (Whistles != null)
+            {
+                if (Whistles.IsSpawned) Whistles.NetworkObject.Despawn(true);
+                else Destroy(Whistles.gameObject);
+                Whistles = null;
             }
 
             _levelState?.Dispose();

@@ -7,6 +7,7 @@ using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
 using Unity.Multiplayer.Testing;
+using Unity.Multiplayer.UI;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -82,8 +83,8 @@ namespace Unity.Cursory.Tests
             _client = CursoryClient.Create(_session, camera);
             _client.ReadDevices = false;
             _client.ScreenOverride = ScreenSize;
-            yield return WaitFor(() => _client.Board != null && _client.LevelState != null && _client.LevelNumber == 1 && _client.Bodies.Count == 1,
-                "the presentation never found the board, the level state and level 1's block");
+            yield return WaitFor(() => _client.Board != null && _client.Whistles != null && _client.LevelState != null && _client.LevelNumber == 1 && _client.Bodies.Count == 1,
+                "the presentation never found the vote and whistle boards, the level state and level 1's block");
         }
 
         private static IEnumerator WaitFor(System.Func<bool> condition, string failure, float seconds = 5f)
@@ -118,7 +119,7 @@ namespace Unity.Cursory.Tests
         {
             yield return StartHostAndClient();
             var whistles = new List<Whistle>();
-            _client.Board.Whistled += whistles.Add;
+            _client.Whistles.Whistled += whistles.Add;
             CursorAvatar me = CursorAvatar.Local(_session);
 
             // A quick, still click on empty space: a whistle at the pressed world point, for everyone.
@@ -199,42 +200,44 @@ namespace Unity.Cursory.Tests
             Assert.That(hud.Banner.Visible, Is.True, "the level banner shows on joining");
             Assert.That(hud.BannerTitle.Text, Is.EqualTo("Level 1 — Drop it on the pad"));
             Assert.That(hud.ConnectionPill.Text, Is.EqualTo("Hosting"));
-            Assert.That(hud.VoteOverlay.Visible, Is.False, "no vote, no overlay");
+            Assert.That(hud.VoteOverlay, Is.Not.Null, "the library's overlay on the room's board (UM-T54)");
+            VoteOverlay overlay = hud.VoteOverlay;
+            Assert.That(overlay.Panel.Visible, Is.False, "no vote, no overlay");
             yield return WaitFor(() => _client.Minimap.Draws > 0, "the minimap never drew");
 
             // Three voters (us and two stand-ins) so one Yes doesn't pass on its own: quorum 2 of 3.
             ulong me = _session.LocalClientId;
             var roster = new[] { me, 1001UL, 1002UL };
-            _server.Votes.Serve(_server.Loader, null, () => roster);
+            _server.Votes.Serve(null, null, () => roster);
 
             hud.ResetButton.Click();
-            yield return WaitFor(() => hud.VoteOverlay.Visible, "Reset never opened a vote");
-            Assert.That(hud.VoteTitle.Text, Is.EqualTo("Reset the level?"));
-            Assert.That(hud.VoteTally.Text, Does.StartWith("Yes 1 · No 0 · needs 2 of 3"), "the starter counts as Yes");
-            Assert.That(hud.YesButton.Interactable || hud.NoButton.Interactable, Is.False, "we already voted (Cursory disables both)");
-            Assert.That(hud.ResetButton.Interactable, Is.False, "one vote at a time");
+            yield return WaitFor(() => overlay.Panel.Visible, "Reset never opened a vote");
+            Assert.That(overlay.TitleText.Text, Is.EqualTo("Reset the level?"));
+            Assert.That(overlay.TallyText.Text, Does.StartWith("Yes 1 · No 0 · needs 2 of 3"), "the starter counts as Yes");
+            Assert.That(overlay.YesButton.Interactable || overlay.NoButton.Interactable, Is.False, "we already voted (Cursory disables both)");
+            yield return WaitFor(() => !hud.ResetButton.Interactable, "one vote at a time: Reset never disabled");   // the HUD refreshes in LateUpdate, the overlay in Update
 
             _server.Votes.Box.Cast(1001UL, false);
             _server.Votes.Box.Cast(1002UL, false);
-            yield return WaitFor(() => !hud.VoteOverlay.Visible, "the rejected vote never left the overlay");
+            yield return WaitFor(() => !overlay.Panel.Visible, "the rejected vote never left the overlay");
 
             // A stand-in proposes level 3; our Yes is the second of two needed.
-            _server.Votes.Box.StartLevel(1001UL, 3, roster, _session.Clock.CurrentTick);
-            yield return WaitFor(() => hud.VoteOverlay.Visible && hud.YesButton.Interactable, "we never got to vote on level 3");
-            Assert.That(hud.VoteTitle.Text, Is.EqualTo("Switch to Level 3?"));
-            Assert.That(hud.VoteStanding.Text, Is.EqualTo("Your vote"));
-            hud.YesButton.Click();
+            _server.Votes.Box.Start(new VoteRequest(LevelVotes.LevelKind, 1001UL, 3), roster);
+            yield return WaitFor(() => overlay.Panel.Visible && overlay.YesButton.Interactable, "we never got to vote on level 3");
+            Assert.That(overlay.TitleText.Text, Is.EqualTo("Switch to Level 3?"));
+            Assert.That(overlay.StandingText.Text, Is.EqualTo("Your vote"));
+            overlay.YesButton.Click();
             yield return WaitFor(() => _server.Loader.CurrentLevel == 3, "our Yes never passed the vote");
             yield return WaitFor(() => hud.ShownLevel == 3, "the HUD never followed the level state to level 3");
-            Assert.That(hud.VoteOverlay.Visible, Is.False);
+            Assert.That(overlay.Panel.Visible, Is.False);
             Assert.That(hud.LevelSelect.Value, Is.EqualTo(2), "Level 3 in the dropdown");
             Assert.That(hud.Banner.Visible, Is.True, "the new level's banner");
             Assert.That(hud.BannerTitle.Text, Is.EqualTo("Level 3 — Pivot the couch"));
 
             // Picking a level in the dropdown proposes it; the dropdown keeps showing the room's level.
             hud.LevelSelect.Value = 4;
-            yield return WaitFor(() => hud.VoteOverlay.Visible, "picking Level 5 never started a vote");
-            Assert.That(hud.VoteTitle.Text, Is.EqualTo("Switch to Level 5?"));
+            yield return WaitFor(() => overlay.Panel.Visible, "picking Level 5 never started a vote");
+            Assert.That(overlay.TitleText.Text, Is.EqualTo("Switch to Level 5?"));
             Assert.That(_server.Votes.Status.StartedBy, Is.EqualTo(me));
             Assert.That(hud.LevelSelect.Value, Is.EqualTo(2), "still Level 3 until the vote passes");
         }
@@ -262,9 +265,9 @@ namespace Unity.Cursory.Tests
             yield return StartHostAndClient();
             yield return WaitFor(() => _client.Hud.ShownLevel == 1, "the HUD never showed level 1");
             CursorAvatar.Local(_session).Move(new Vector2(4600f, 5150f));
-            _server.Votes.Serve(_server.Loader, null, () => new[] { _session.LocalClientId, 1001UL, 1002UL });
+            _server.Votes.Serve(null, null, () => new[] { _session.LocalClientId, 1001UL, 1002UL });
             _client.Hud.ResetButton.Click();
-            yield return WaitFor(() => _client.Hud.VoteOverlay.Visible, "no vote to show");
+            yield return WaitFor(() => _client.Hud.VoteOverlay.Panel.Visible, "no vote to show");
             _client.View.Zoom = 0.5f;   // the whole of level 1: block, pad and signpost
             _client.Camera.GetComponent<Camera>().backgroundColor = new Color(0.07f, 0.08f, 0.10f, 1f);
             _client.Camera.GetComponent<Camera>().clearFlags = CameraClearFlags.SolidColor;
@@ -284,6 +287,10 @@ namespace Unity.Cursory.Tests
             hud.renderMode = RenderMode.ScreenSpaceCamera;
             hud.worldCamera = camera;
             hud.planeDistance = 1f;
+            Canvas votes = _client.Hud.VoteOverlay.Canvas;   // the library's overlay draws on its own canvas
+            votes.renderMode = RenderMode.ScreenSpaceCamera;
+            votes.worldCamera = camera;
+            votes.planeDistance = 0.9f;
             camera.targetTexture = rt;
             yield return Frames(2);
             camera.Render();
