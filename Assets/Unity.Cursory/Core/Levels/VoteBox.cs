@@ -8,12 +8,20 @@ namespace Unity.Cursory.Core
     /// <c>StartResetVote</c>, <c>StartLevelVote</c>, <c>CastVote</c> and the vote timeout). The roster when a
     /// vote starts is its voter list, the starter counts as Yes, and it passes at a 2/3 quorum: a reset
     /// re-seeds the level, a level vote loads the target. It is dropped as soon as it can no longer pass,
-    /// or after <see cref="Vote.TimeoutTicks"/>. Players are identified by their network client id.
+    /// or after <see cref="Vote.TimeoutTicks"/>. A voter who leaves is dropped from it and the quorum is
+    /// recomputed from who is left (<see cref="RemoveVoter"/>). Players are identified by their network client id.
+    /// <see cref="Changed"/> and <see cref="Ended"/> report every change, for the network layer and the HUD.
     /// </summary>
     public sealed class VoteBox
     {
         private readonly LevelLoader loader;
         private Vote active;
+
+        /// <summary>Raised after every change to the vote in progress (start, ballot, departure, end) with <see cref="Current"/>: null once it ends.</summary>
+        public event Action<Vote> Changed;
+
+        /// <summary>Raised when a vote ends, after a passing vote's effect has been applied to the loader.</summary>
+        public event Action<Vote, VoteEnding> Ended;
 
         public VoteBox(LevelLoader loader)
         {
@@ -22,6 +30,18 @@ namespace Unity.Cursory.Core
 
         /// <summary>A copy of the vote in progress, or null when there is none.</summary>
         public Vote Current => active == null ? null : Copy(active);
+
+        /// <summary>True while a vote is running.</summary>
+        public bool IsActive => active != null;
+
+        /// <summary>The running vote's number (1 for the first vote, counting up); the last vote's once it has ended.</summary>
+        public int Sequence { get; private set; }
+
+        /// <summary>The running vote's status at <paramref name="nowTick"/>, or null when there is none.</summary>
+        public VoteStatus Status(long nowTick) => active == null ? null : VoteStatus.Of(active, Sequence, nowTick);
+
+        /// <summary>Where <paramref name="player"/> stands on the running vote; <see cref="VoteChoice.NotAVoter"/> when none runs.</summary>
+        public VoteChoice ChoiceOf(ulong player) => active == null ? VoteChoice.NotAVoter : active.ChoiceOf(player);
 
         /// <summary>Starts a reset vote. False when a vote is already running or the starter is not in <paramref name="roster"/>.</summary>
         public bool StartReset(ulong starter, IReadOnlyCollection<ulong> roster, long nowTick) =>
@@ -47,13 +67,33 @@ namespace Unity.Cursory.Core
             active.Yes.Remove(voter);
             active.No.Remove(voter);
             (yes ? active.Yes : active.No).Add(voter);
+            Changed?.Invoke(Current);
+            Resolve();
+        }
+
+        /// <summary>
+        /// Drops <paramref name="player"/> (who left the room) from the running vote and recomputes the quorum from
+        /// the voters who are left, which can pass or reject it at once. A vote whose last voter leaves is abandoned.
+        /// </summary>
+        public void RemoveVoter(ulong player)
+        {
+            if (active == null || !active.Voters.Remove(player)) return;
+            active.Yes.Remove(player);
+            active.No.Remove(player);
+            if (active.Voters.Count == 0)
+            {
+                End(VoteEnding.Abandoned);
+                return;
+            }
+            active.Quorum = Vote.QuorumFor(active.Voters.Count);
+            Changed?.Invoke(Current);
             Resolve();
         }
 
         /// <summary>Drops the vote once <see cref="Vote.TimeoutTicks"/> have passed since it started. Call every tick.</summary>
         public void Tick(long nowTick)
         {
-            if (active != null && active.IsExpired(nowTick)) active = null;
+            if (active != null && active.IsExpired(nowTick)) End(VoteEnding.TimedOut);
         }
 
         private bool Start(ulong starter, IReadOnlyCollection<ulong> roster, long nowTick, VoteKind kind, int targetLevel)
@@ -75,6 +115,8 @@ namespace Unity.Cursory.Core
                 No = new List<ulong>(),
                 Quorum = Vote.QuorumFor(voters.Count),
             };
+            Sequence++;
+            Changed?.Invoke(Current);
             Resolve();
             return true;
         }
@@ -84,15 +126,22 @@ namespace Unity.Cursory.Core
             switch (active.Outcome)
             {
                 case VoteOutcome.Passed:
-                    var passed = active;
-                    active = null;
-                    if (passed.Kind == VoteKind.Reset) loader.Reset();
-                    else loader.Load(passed.TargetLevel);
+                    if (active.Kind == VoteKind.Reset) loader.Reset();
+                    else loader.Load(active.TargetLevel);
+                    End(VoteEnding.Passed);
                     break;
                 case VoteOutcome.Rejected:
-                    active = null;
+                    End(VoteEnding.Rejected);
                     break;
             }
+        }
+
+        private void End(VoteEnding ending)
+        {
+            var ended = active;
+            active = null;
+            Changed?.Invoke(null);
+            Ended?.Invoke(ended, ending);
         }
 
         private static Vote Copy(Vote v) => new Vote

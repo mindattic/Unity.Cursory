@@ -21,6 +21,29 @@ namespace Unity.Cursory.Core
         Rejected = 2,
     }
 
+    /// <summary>How a vote ended, as reported by <see cref="VoteBox.Ended"/>.</summary>
+    public enum VoteEnding
+    {
+        /// <summary>Yes reached the quorum; the vote's effect was applied.</summary>
+        Passed = 0,
+        /// <summary>Too many No votes (or departures) for the quorum to be reached.</summary>
+        Rejected = 1,
+        /// <summary><see cref="Vote.TimeoutTicks"/> passed without a decision.</summary>
+        TimedOut = 2,
+        /// <summary>Every voter left.</summary>
+        Abandoned = 3,
+    }
+
+    /// <summary>Where one player stands on a <see cref="Vote"/>.</summary>
+    public enum VoteChoice
+    {
+        /// <summary>Not on the vote's roster (joined after it started), or no vote is running.</summary>
+        NotAVoter = 0,
+        Undecided = 1,
+        Yes = 2,
+        No = 3,
+    }
+
     /// <summary>
     /// A room vote (Cursory's <c>RoomVote</c>). The roster at the start is the voter list; the starter counts
     /// as Yes; it passes at a 2/3 quorum of that roster and times out after <see cref="TimeoutTicks"/>.
@@ -66,6 +89,20 @@ namespace Unity.Cursory.Core
 
         /// <summary>True once <see cref="TimeoutTicks"/> have passed since the vote started.</summary>
         public bool IsExpired(long nowTick) => nowTick - StartedAtTick >= TimeoutTicks;
+
+        /// <summary>Ticks until the vote lapses at <paramref name="nowTick"/>; 0 once it has.</summary>
+        public long TicksLeft(long nowTick) => Math.Max(0, StartedAtTick + TimeoutTicks - nowTick);
+
+        /// <summary>Whole seconds until the vote lapses, rounded up (15 at the start, 0 once lapsed): a HUD countdown.</summary>
+        public int SecondsLeft(long nowTick) => (int)((TicksLeft(nowTick) + SimulationRate.TicksPerSecond - 1) / SimulationRate.TicksPerSecond);
+
+        /// <summary>Where <paramref name="player"/> stands on this vote.</summary>
+        public VoteChoice ChoiceOf(ulong player)
+        {
+            if (Yes.Contains(player)) return VoteChoice.Yes;
+            if (No.Contains(player)) return VoteChoice.No;
+            return Voters.Contains(player) ? VoteChoice.Undecided : VoteChoice.NotAVoter;
+        }
     }
 
     /// <summary>
@@ -79,6 +116,8 @@ namespace Unity.Cursory.Core
 
         public ulong PlayerId;
         public string Color = "#7F77DD";
+        /// <summary>The player's tone, 0 to <see cref="WhistleTone.Count"/> - 1 (<see cref="WhistleTone.For"/>).</summary>
+        public int Tone;
         public float X;
         public float Y;
         public long Tick;

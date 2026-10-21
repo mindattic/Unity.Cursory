@@ -67,6 +67,8 @@ namespace Unity.Cursory.Tests
             Assert.That(server.Simulation.IsAttached, Is.True, "the world steps on the network tick");
             Assert.That(ServerSimulation.For(session), Is.SameAs(server.Simulation), "CursorAvatar finds the served simulation");
             Assert.That(server.Simulation.Loader, Is.SameAs(server.Loader), "GeometryBroadcast reads the loader");
+            Assert.That(server.Votes, Is.Not.Null, "the server spawns the vote board");
+            Assert.That(server.Votes.IsSpawned && server.Votes.Box != null, Is.True, "and serves it (UC-T10)");
             Assert.That(manager.NetworkConfig.PlayerPrefab, Is.Not.Null.And.Matches<GameObject>(p => p.GetComponent<CursorAvatar>() != null),
                 "the cursor avatar is the player object");
             Assert.That(server.LevelState, Is.Not.Null, "UC-T9: the server runs the goal pass");

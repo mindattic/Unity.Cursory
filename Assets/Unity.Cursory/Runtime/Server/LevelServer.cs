@@ -37,6 +37,9 @@ namespace Unity.Cursory
         /// <summary>The tick-stepped simulation, or null until a server session starts.</summary>
         public ServerSimulation Simulation { get; private set; }
 
+        /// <summary>The spawned vote and whistle board (UC-T10), served against <see cref="Loader"/>; null until a server session starts.</summary>
+        public VoteBoard Votes { get; private set; }
+
         /// <summary>True while a server session is running a level.</summary>
         public bool IsServing => Simulation != null && Simulation.World != null;
 
@@ -100,7 +103,25 @@ namespace Unity.Cursory
             _geometry.Bind(Simulation);
             _levelState = new LevelStateServer(Simulation, SpawnLevelState());
             _levelState.Track(Loader.World);
+            SpawnVoteBoard();
             Debug.Log("[Unity.Cursory] Serving level " + Loader.CurrentLevel + " of " + Loader.LevelCount + ".");
+        }
+
+        /// <summary>Spawns the scene's one <see cref="VoteBoard"/> (owned by the server) and serves it against <see cref="Loader"/>.</summary>
+        private void SpawnVoteBoard()
+        {
+            GameObject prefab = NetPrefabs.LoadVoteBoard();
+            if (prefab == null)
+            {
+                Debug.LogError("[Unity.Cursory] No " + NetPrefabs.VoteBoardResourcePath + " prefab; the server runs no votes.", this);
+                return;
+            }
+
+            GameObject board = Instantiate(prefab);
+            board.name = "VoteBoard";
+            board.GetComponent<NetworkObject>().Spawn();
+            Votes = board.GetComponent<VoteBoard>();
+            Votes.Serve(Loader);
         }
 
         private void OnEnded(Disconnection reason)
@@ -121,6 +142,14 @@ namespace Unity.Cursory
 
         private void StopServing()
         {
+            if (Votes != null)
+            {
+                Votes.StopServing();
+                if (Votes.IsSpawned) Votes.NetworkObject.Despawn(true);
+                else Destroy(Votes.gameObject);
+                Votes = null;
+            }
+
             _levelState?.Dispose();
             _levelState = null;
             if (_levelStateSync != null)

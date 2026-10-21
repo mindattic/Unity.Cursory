@@ -199,6 +199,21 @@ interface so a compact snapshot can replace them without touching gameplay code.
   joiner gets the wires), `CursorAvatarServerAndClientsTests.GrabWireEnd_FollowsTheCursor_AndSnapsOntoATerminalOnRelease`
   and `LevelServerTests`.
 
+- ✅ **Votes and whistles** (UC-T10): `Runtime/Votes/VoteBoard`, a scene-level, server-owned `NetEntity`
+  apart from the player cursors. Any player sends `StartResetVote()`, `StartLevelVote(level)`, `CastVote(yes)`
+  and `Whistle(worldPx)` (`[ToServer]`, no ownership, rate-limited); the server runs them through Core's
+  `VoteBox` (2/3 quorum `ceil(roster × 2 / 3)`, early rejection once the quorum is unreachable, 15 s timeout on
+  the session's tick clock) after `VoteBoard.Serve(loader)`; `LevelServer` spawns the board (prefab
+  `Resources/Unity.Cursory/VoteBoard`, registered by `NetPrefabs.RegisterAll`) and serves it against its loader on
+  every server session. A passing reset or level vote resets or loads the level in the `LevelLoader`, raising its
+  geometry resend. A player who disconnects mid-vote is dropped from it and the quorum recomputed
+  (`VoteBox.RemoveVoter`). The vote's status is `[Synced]` (late joiners see it), ballots and the end go out as
+  `[ToClients]`, and a whistle is broadcast `[ToClients]` with the whistler's colour and tone (`Core/Model/WhistleTone`:
+  Cursory's 12 tones, 440 Hz + 35 Hz a step, keyed by seat). The HUD binds to `Status` (`VoteStatus`),
+  `LocalChoice`/`ChoiceOf`, and the events `VoteChanged`, `VoteEnded` and `Whistled`. Verified by
+  `dotnet test Tests/Core.Tests` (`VoteBoxTests`, `WhistleToneTests`, plus UC-T5's `VoteAndLevelTests`) and the
+  PlayMode suite (`VoteBoardTests`: a host and two clients vote over loopback, and a whistle reaches every peer).
+
 ## 7. Active frontier {#UC-§7}
 The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
 [USER_STORIES.md](USER_STORIES.md). Next: UC-T8 (tethers and per-player settings on the UC-T7 cursor).
