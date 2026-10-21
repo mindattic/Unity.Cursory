@@ -3,6 +3,7 @@
     Deploy Cursory's dedicated server: a thin call to Unity.Multiplayer's `mp-host game` (UM-T58).
 
 .DESCRIPTION
+    Server only: the Windows client is deployed to this PC by deploy.bat (tools/deploy.ps1, UC-T27).
     Kept so the global /deploy router finds a deploy.ps1; everything it does is generic `mp-host game`, which finds
     Unity 6000.4.3f1 from ProjectSettings/ProjectVersion.txt, builds the server package from Main.unity (the first
     Build Settings scene) with the library's batch build, and runs the mp-host pipeline. Defaults (server name

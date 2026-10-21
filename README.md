@@ -9,6 +9,16 @@ need the engine are tested without Unity: `dotnet test Tests/Core.Tests`.
 The server's Physics2D sim has a PlayMode suite, `Unity.Cursory.PlayMode.Tests`: run it from the editor's Test
 Runner, or `Unity -batchmode -nographics -projectPath . -runTests -testPlatform PlayMode -assemblyNames Unity.Cursory.PlayMode.Tests`.
 
+Two deploy entry points, one per side:
+
+- **Windows client: `deploy.bat`** (or the Desktop shortcut it makes). It pulls latest, rebuilds the Windows Release
+  player only when Assets, Packages or ProjectSettings changed since the commit in `C:\Apps\Unity.Cursory\.deploy-commit`,
+  stops a running copy, publishes to `C:\Apps\Unity.Cursory`, points the `Unity.Cursory` Desktop shortcut at
+  `deploy.bat` and launches the game (`tools\deploy.ps1` does the work; `-DryRun` only says whether it would rebuild).
+  The Unity Editor must be closed on the project. The build alone:
+  `powershell -File tools/unity.ps1 -Method Unity.Cursory.EditorTools.CursoryBuild.BuildWindowsRelease -Graphics`.
+- **Dedicated server: `deploy.ps1`** (what the global `/deploy` router runs), below.
+
 Dedicated server: `mp-host game local` (or `./deploy.ps1 -Profile Local`) builds the headless Linux server package and
 runs it, with no Cursory build code: Unity.Multiplayer's `mp-host game` does it all (`-Profile GenericVps|RunPod|Local`,
 `-DryRun`); see [docs/hosting.md](docs/hosting.md).
