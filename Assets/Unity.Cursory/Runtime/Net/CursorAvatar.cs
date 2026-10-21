@@ -355,6 +355,24 @@ namespace Unity.Cursory
             _heldWireEndA = false;
         }
 
+        /// <summary>
+        /// Server side: every avatar spawned under <paramref name="session"/> lets go of whatever it holds, as before a
+        /// level's world is torn down (<see cref="ServerSimulation.RebuildWorld"/>). Safe with a null session.
+        /// </summary>
+        internal static void ReleaseAll(NetSession session)
+        {
+            List<CursorAvatar> avatars;
+            if (session == null || !s_BySession.TryGetValue(session, out avatars))
+            {
+                return;
+            }
+
+            foreach (CursorAvatar avatar in new List<CursorAvatar>(avatars))
+            {
+                if (avatar.IsServer) avatar.ReleaseHeld();
+            }
+        }
+
         /// <summary>Server side: sends <paramref name="geometry"/> to every avatar spawned under <paramref name="session"/> (<see cref="GeometryBroadcast"/>).</summary>
         internal static void BroadcastGeometry(NetSession session, LevelGeometry geometry)
         {

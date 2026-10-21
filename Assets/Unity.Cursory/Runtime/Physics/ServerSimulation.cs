@@ -67,9 +67,12 @@ namespace Unity.Cursory
         /// <summary>Raised after each step, with the clock's tick, for the server's per-tick game logic.</summary>
         public event Action<long> Stepped;
 
+        /// <summary>Raised after <see cref="RebuildWorld"/> has replaced <see cref="World"/>, with the new world.</summary>
+        public event Action<PhysicsWorld> WorldRebuilt;
+
         /// <summary>
-        /// Raised after a step in which <see cref="Loader"/> had a pending geometry resend (BIBLE UC-LAW-4): a level
-        /// just loaded or reset. <see cref="GeometryBroadcast"/> turns this into a <see cref="CursorAvatar.ReceiveGeometry"/>
+        /// Raised on the tick after <see cref="Loader"/> loads or resets a level (BIBLE UC-LAW-4), once
+        /// <see cref="RebuildWorld"/> has rebuilt the world for it. <see cref="GeometryBroadcast"/> turns this into a <see cref="CursorAvatar.ReceiveGeometry"/>
         /// call on every spawned cursor.
         /// </summary>
         public event Action<LevelGeometry> GeometryChanged;
@@ -150,10 +153,30 @@ namespace Unity.Cursory
             Detach();
         }
 
+        /// <summary>
+        /// Replaces <see cref="World"/> with one built from <see cref="Loader"/>'s current level: every cursor of the
+        /// bound session lets go first (<see cref="CursorAvatar.ReleaseAll"/>), then the old world's bodies, walls and
+        /// joints are torn down and the new world reuses its <see cref="PhysicsWorld.BodySync"/>. Runs by itself on
+        /// the tick after a level load or reset, before the geometry resend.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">No <see cref="Loader"/> is set.</exception>
+        public void RebuildWorld()
+        {
+            if (Loader == null) throw new InvalidOperationException("ServerSimulation.RebuildWorld needs a Loader.");
+            CursorAvatar.ReleaseAll(_session);
+            var old = World;
+            var bodySync = old?.BodySync;
+            World = null;
+            old?.Dispose();
+            World = new PhysicsWorld(Loader.World, "Level " + Loader.CurrentLevel, bodySync);
+            WorldRebuilt?.Invoke(World);
+        }
+
         private void OnTick(long tick)
         {
             if (Loader != null && Loader.ConsumeGeometryRebroadcast())
             {
+                RebuildWorld();
                 GeometryChanged?.Invoke(Loader.World.Geometry());
             }
 

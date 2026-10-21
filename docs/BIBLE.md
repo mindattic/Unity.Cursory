@@ -214,6 +214,13 @@ interface so a compact snapshot can replace them without touching gameplay code.
   `dotnet test Tests/Core.Tests` (`VoteBoxTests`, `WhistleToneTests`, plus UC-T5's `VoteAndLevelTests`) and the
   PlayMode suite (`VoteBoardTests`: a host and two clients vote over loopback, and a whistle reaches every peer).
 
+- ✅ **Level reload rebuilds the physics** (UC-T20): on the tick after the `LevelLoader` loads or resets a level
+  (a passed vote, or any caller), `ServerSimulation.RebuildWorld` makes every cursor let go
+  (`CursorAvatar.ReleaseAll`), tears down the old `PhysicsWorld` (its rigid bodies leave the simulation at once,
+  the networked copies despawn) and builds the new level's with the same `IBodySync`, then raises `WorldRebuilt`
+  and the geometry resend. Verified by the PlayMode `LevelReloadTests` (a reset mid-grab and a level switch
+  mid-grab, host + client).
+
 ## 7. Active frontier {#UC-§7}
 The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
 [USER_STORIES.md](USER_STORIES.md). Next: UC-T8 (tethers and per-player settings on the UC-T7 cursor).

@@ -48,6 +48,12 @@ namespace Unity.Cursory
             Physics2D.SyncTransforms();
         }
 
+        /// <summary>How this world's bodies replicate; null for plain, unnetworked bodies. A rebuilt world reuses it.</summary>
+        public IBodySync BodySync => _bodySync;
+
+        /// <summary>True once <see cref="Dispose"/> has run.</summary>
+        public bool IsDisposed => _root == null;
+
         /// <summary>The ids of every movable body (blocks and shapes).</summary>
         public IEnumerable<string> BodyIds => _bodies.Keys;
 
@@ -179,16 +185,40 @@ namespace Unity.Cursory
             return false;
         }
 
-        /// <summary>Destroys every body, wall and grab.</summary>
+        /// <summary>
+        /// Destroys every body, wall and grab. Their rigid bodies leave the simulation at once (a Unity object is
+        /// only destroyed at the end of the frame), so a world built in their place the same tick never meets them.
+        /// </summary>
         public void Dispose()
         {
             if (_root == null) return;
+            foreach (var body in _bodies.Values)
+            {
+                if (body.Rigidbody == null) continue;
+                Retire(body.Rigidbody.gameObject);
+                // A networked body may not sit under the root, so it is destroyed (and so despawned) by itself.
+                if (!body.Rigidbody.transform.IsChildOf(_root.transform)) DestroyObject(body.Rigidbody.gameObject);
+            }
+            Retire(_root);
             _grabs.Clear();
             _bodies.Clear();
             _walls.Clear();
-            if (Application.isPlaying) UnityEngine.Object.Destroy(_root);
-            else UnityEngine.Object.DestroyImmediate(_root);
+            DestroyObject(_root);
             _root = null;
+        }
+
+        /// <summary>Takes <paramref name="go"/>'s colliders, joints and rigid bodies out of the simulation now.</summary>
+        private static void Retire(GameObject go)
+        {
+            foreach (var joint in go.GetComponentsInChildren<Joint2D>(true)) joint.enabled = false;
+            foreach (var col in go.GetComponentsInChildren<Collider2D>(true)) col.enabled = false;
+            foreach (var rb in go.GetComponentsInChildren<Rigidbody2D>(true)) rb.simulated = false;
+        }
+
+        private static void DestroyObject(GameObject go)
+        {
+            if (Application.isPlaying) UnityEngine.Object.Destroy(go);
+            else UnityEngine.Object.DestroyImmediate(go);
         }
 
         private void AddWall(Wall w)
