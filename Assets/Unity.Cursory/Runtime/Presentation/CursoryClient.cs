@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.UI;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -420,9 +419,7 @@ namespace Unity.Cursory
 
         private void CollectBodies(LevelData level)
         {
-            CursorAvatar any = LocalAvatar;
-            NetworkManager manager = any != null ? any.NetworkManager : _levelState != null ? _levelState.NetworkManager : null;
-            ClientBodies.Collect(manager, level, _bodies);
+            ClientBodies.Collect(_session != null ? _session.Objects : null, level, _bodies);
         }
 
         /// <summary>Puts the Unity camera where <see cref="View"/> says.</summary>

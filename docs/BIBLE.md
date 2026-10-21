@@ -174,7 +174,10 @@ interface so a compact snapshot can replace them without touching gameplay code.
   input does: `CursorAvatar.Local(session)`, `ForClient`, `All` and the static `Spawned`/`Despawned` events find
   cursors on any peer. Bodies replicate through `IBodySync` (`NgoBodySync`: `NetworkTransform` x, y, rot z, half
   precision, interpolated, plus `NetworkRigidbody2D`, prefab `Resources/Unity.Cursory/NetworkedBody`; the
-  [UC-LAW-7](#UC-LAW-7) exception), and static geometry goes out once per level as the `[ToOwner]`
+  [UC-LAW-7](#UC-LAW-7) exception). Each body carries Unity.Multiplayer's `NetKey` with its level block or shape id
+  (UM-T60): the server spawns it with `NetSession.Objects.Spawn(prefab, id, ...)` and despawns it at once when the
+  world is torn down (`IBodySync.DespawnBody`, so a reset can respawn the same ids that tick), and every client finds
+  it by that id in `NetSession.Objects` (`ClientBodies.Collect`), never by spawn order. Static geometry goes out once per level as the `[ToOwner]`
   `ReceiveGeometry` on spawn and after a load or reset (`GeometryBroadcast`, [UC-LAW-4](#UC-LAW-4)).
   `NetPrefabs.RegisterAll(session)` registers both prefabs and returns the body sync; the editor menu
   `Unity.Cursory/Write Networked Prefabs` (`NetPrefabWriter`) writes them. Verified by the PlayMode suites
@@ -247,7 +250,7 @@ interface so a compact snapshot can replace them without touching gameplay code.
   (`-batchmode`, a dedicated server build, `-bot`) creates none (`CursoryClient.ShouldPresent`). Input is the Input
   System mouse, turned into intents only ([UC-LAW-1](#UC-LAW-1)) by `PointerInput`: a press on a wire end, shape,
   block or wall (`Core/Presentation/BodyPicker`, Cursory's pick order, against the client's own copy of the level and
-  the replicated poses, matched by spawn order in `ClientBodies`) grabs it and the release lets go; a press on empty
+  the replicated poses, found by block/shape id in `ClientBodies`) grabs it and the release lets go; a press on empty
   space follows `Core/Presentation/PointerGesture` (5 px of travel pans the camera, a release within 250 ms whistles
   through the `VoteBoard`); the wheel zooms about the pointer in 0.1 to 4 (`Core/Presentation/CameraView`, which
   `TopDownCamera` now follows). `WorldView` draws goal pads (green when solved), walls, circuit, bodies with their

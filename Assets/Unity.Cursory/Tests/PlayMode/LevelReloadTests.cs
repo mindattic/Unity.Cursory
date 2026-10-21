@@ -6,6 +6,7 @@ using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
 using Unity.Multiplayer.Testing;
+using Unity.Netcode;
 using Unity.Netcode.TestHelpers.Runtime;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -98,6 +99,22 @@ namespace Unity.Cursory.Tests
             AssertOnTimeout("the grab never moved the block");
         }
 
+        /// <summary>
+        /// UM-T60: the client finds each of <paramref name="level"/>'s bodies by its block/shape id, and each is the copy of
+        /// the server's current body with that id (not an old level's object that held the id before the rebuild).
+        /// </summary>
+        private IEnumerator WaitForClientBodiesById(LevelData level)
+        {
+            var bodies = new Dictionary<string, Transform>();
+            string[] ids = level.Blocks.Select(b => b.Id).Concat(level.Shapes.Select(s => s.Id)).ToArray();
+            yield return WaitForConditionOrTimeOut(() =>
+                ClientBodies.Collect(_client.Objects, level, bodies)
+                && ids.All(id => bodies[id].GetComponent<NetworkObject>().NetworkObjectId == Sim.World.Rigidbody(id).GetComponent<NetworkObject>().NetworkObjectId));
+            AssertOnTimeout("the client never found level " + level.Number + "'s bodies by id (" + string.Join(", ", ids) + ") as the server's current ones; it has "
+                + string.Join(", ", _client.Objects.Keys));
+            Assert.That(bodies.Keys, Is.EquivalentTo(ids));
+        }
+
         private IEnumerator WaitForRebuild(PhysicsWorld old)
         {
             yield return WaitForConditionOrTimeOut(() => Sim.World != null && !ReferenceEquals(Sim.World, old));
@@ -133,6 +150,8 @@ namespace Unity.Cursory.Tests
 
             yield return WaitForConditionOrTimeOut(() => !m_ClientNetworkManagers[0].SpawnManager.SpawnedObjects.ContainsKey(oldBlockObject));
             AssertOnTimeout("the old level's networked block never despawned on the client");
+            Assert.That(BlockNetworkObjectId, Is.Not.EqualTo(oldBlockObject), "the reset spawned a new block under the same id");
+            yield return WaitForClientBodiesById(OneLevel());
 
             onClient.Move(new Vector2(OriginX + 400f, OriginY));
             for (int i = 0; i < 15; i++) yield return null;
@@ -161,6 +180,7 @@ namespace Unity.Cursory.Tests
 
             yield return WaitForConditionOrTimeOut(() => onClient.Geometry.LevelNumber == 2 && onClient.Geometry.Walls.Length == 2);
             AssertOnTimeout("level 2's geometry never reached the client");
+            yield return WaitForClientBodiesById(SecondLevel());
 
             yield return GrabAndPull(onClient, onServer, SecondBlockId, OriginX - 200f);
         }

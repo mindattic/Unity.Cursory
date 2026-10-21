@@ -273,8 +273,10 @@ namespace Unity.Cursory
             {
                 if (body.Rigidbody == null) continue;
                 Retire(body.Rigidbody.gameObject);
-                // A networked body may not sit under the root, so it is destroyed (and so despawned) by itself.
-                if (!body.Rigidbody.transform.IsChildOf(_root.transform)) DestroyObject(body.Rigidbody.gameObject);
+                // A networked body is despawned now, not at the end of the frame, so its key (its block/shape id) is free
+                // for a world rebuilt in its place this tick; it may not sit under the root, so it goes by itself.
+                if (_bodySync != null) _bodySync.DespawnBody(body.Rigidbody.gameObject);
+                else if (!body.Rigidbody.transform.IsChildOf(_root.transform)) DestroyObject(body.Rigidbody.gameObject);
             }
             Retire(_root);
             _grabs.Clear();
@@ -312,7 +314,7 @@ namespace Unity.Cursory
 
         private void AddBlock(Block b)
         {
-            var rb = NewBody("Block " + b.Id, b.X, b.Y, b.Angle);
+            var rb = NewBody(b.Id, "Block " + b.Id, b.X, b.Y, b.Angle);
             var box = rb.gameObject.AddComponent<BoxCollider2D>();
             box.size = new Vector2(WorldUnits.ToMeters(b.W), WorldUnits.ToMeters(b.H));
             Finish(rb, b.Mass);
@@ -321,7 +323,7 @@ namespace Unity.Cursory
 
         private void AddShape(Shape s)
         {
-            var rb = NewBody("Shape " + s.Id, s.X, s.Y, s.Angle);
+            var rb = NewBody(s.Id, "Shape " + s.Id, s.X, s.Y, s.Angle);
             var pieces = new List<ShapePiece>(s.Pieces.Count);
             foreach (var p in s.Pieces)
             {
@@ -334,7 +336,7 @@ namespace Unity.Cursory
             _bodies.Add(s.Id, new Body(s.Id, rb, 0f, 0f, pieces));
         }
 
-        private Rigidbody2D NewBody(string name, float x, float y, float angle)
+        private Rigidbody2D NewBody(string id, string name, float x, float y, float angle)
         {
             Vector2 position = ToMeters(x, y);
             Quaternion rotation = Quaternion.Euler(0f, 0f, angle * Mathf.Rad2Deg);
@@ -343,7 +345,7 @@ namespace Unity.Cursory
             {
                 // The returned object already carries a Rigidbody2D (and is spawned, replicated to every client);
                 // everything below just configures it, the same as the unnetworked path.
-                go = _bodySync.SpawnBody(name, position, rotation, _root.transform);
+                go = _bodySync.SpawnBody(id, name, position, rotation, _root.transform);
             }
             else
             {

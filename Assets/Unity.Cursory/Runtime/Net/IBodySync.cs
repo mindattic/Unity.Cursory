@@ -12,10 +12,17 @@ namespace Unity.Cursory
     {
         /// <summary>
         /// A new server-owned body at <paramref name="position"/> (metres) turned by <paramref name="rotation"/>,
-        /// parented under <paramref name="parent"/>, already replicated to every client: a client's copy shows the
-        /// same x, y and rotation z, interpolated. <see cref="PhysicsWorld"/> adds the <see cref="Rigidbody2D"/>,
-        /// colliders and joints to the object this returns exactly as it would to a plain one.
+        /// parented under <paramref name="parent"/>, already replicated to every client under <paramref name="key"/> (its
+        /// level block or shape id), so a client finds its copy by that key (<see cref="ClientBodies"/>), not by spawn
+        /// order: the copy shows the same x, y and rotation z, interpolated. <see cref="PhysicsWorld"/> adds the
+        /// <see cref="Rigidbody2D"/>, colliders and joints to the object this returns exactly as it would to a plain one.
         /// </summary>
-        GameObject SpawnBody(string name, Vector2 position, Quaternion rotation, Transform parent);
+        GameObject SpawnBody(string key, string name, Vector2 position, Quaternion rotation, Transform parent);
+
+        /// <summary>
+        /// Takes a body <see cref="SpawnBody"/> made off every client now and destroys it, freeing its key at once so a
+        /// world rebuilt in the same frame (a level reset) can spawn the same keys again.
+        /// </summary>
+        void DespawnBody(GameObject body);
     }
 }
