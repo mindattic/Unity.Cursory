@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 
-namespace UnityCursory.Core.Tests.Solvability
+namespace Unity.Cursory.Core.Tests.Solvability
 {
     /// <summary>
     /// Ported from Cursory.Tests/SolvabilityTests.cs. Two virtual cursors grab each level's bodies by the

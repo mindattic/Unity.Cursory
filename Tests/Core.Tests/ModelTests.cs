@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 
-namespace UnityCursory.Core.Tests
+namespace Unity.Cursory.Core.Tests
 {
     public class TuningTests
     {

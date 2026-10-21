@@ -4,8 +4,8 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <IsPackable>false</IsPackable>
-    <AssemblyName>UnityCursory.Core.Tests</AssemblyName>
-    <RootNamespace>UnityCursory.Core.Tests</RootNamespace>
+    <AssemblyName>Unity.Cursory.Core.Tests</AssemblyName>
+    <RootNamespace>Unity.Cursory.Core.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
@@ -15,6 +15,6 @@
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../UnityCursory.Core/UnityCursory.Core.csproj" />
+    <ProjectReference Include="../Unity.Cursory.Core/Unity.Cursory.Core.csproj" />
   </ItemGroup>
 </Project>

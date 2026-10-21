@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 
-namespace UnityCursory.Core.Tests
+namespace Unity.Cursory.Core.Tests
 {
     /// <summary>Cursory's 14 levels as ported in <see cref="LevelSeeds"/>.</summary>
     public class LevelSeedTests

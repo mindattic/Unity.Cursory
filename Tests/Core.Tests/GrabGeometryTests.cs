@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 
-namespace UnityCursory.Core.Tests
+namespace Unity.Cursory.Core.Tests
 {
     /// <summary>UC-T6: grabs land on the rim (BIBLE UC-LAW-5), as Cursory's ProjectToEdge did.</summary>
     public class GrabGeometryTests

@@ -1,14 +1,14 @@
 ---
 codex: 1
-project: UnityCursory
+project: Unity.Cursory
 code: UC
 layer: bible
 status: living
 updated: 2026-10-20
 ---
 
-# UnityCursory — Project Bible
-> Single source of truth for what UnityCursory IS, is NOT, and the rules that keep it coherent.
+# Unity.Cursory — Project Bible
+> Single source of truth for what Unity.Cursory IS, is NOT, and the rules that keep it coherent.
 > README says how to build and run it; the design and build order live in MindAttic.Unity.Multiplayer's
 > [RFC 0001](https://github.com/mindattic/MindAttic.Unity.Multiplayer/blob/main/docs/rfc/0001-architecture.md)
 > (summarised for this repo in [rfc/0001-port-plan.md](rfc/0001-port-plan.md)); this says how to think about the system.
@@ -16,7 +16,7 @@ updated: 2026-10-20
 Status legend: ✅ done (verified by a test/build) · 🟡 partial · ⬜ planned · `living`.
 
 ## 1. The one sentence {#UC-§1}
-UnityCursory is [Cursory](https://github.com/mindattic/Cursory)'s wordless co-op physics puzzle rebuilt
+Unity.Cursory is [Cursory](https://github.com/mindattic/Cursory)'s wordless co-op physics puzzle rebuilt
 in Unity 6 (6000.4.3f1): every player is a cursor on a shared top-down world, heavy bodies need several
 cursors pulling together, and the game runs on a dedicated server or a player-hosted listen server
 through [MindAttic.Unity.Multiplayer](https://github.com/mindattic/MindAttic.Unity.Multiplayer).
@@ -47,17 +47,17 @@ The full design (physics mapping, body sync, level port, ticket chain) lives in 
 and is not repeated here. The layout this repo keeps:
 
 ```
-Assets/UnityCursory/Core      UnityCursory.Core     noEngineReferences: game rules, units, level data
-        ▲                                           (compiled by Tests/UnityCursory.Core as netstandard2.1 / C# 9)
-Assets/UnityCursory/Runtime   UnityCursory.Runtime  MonoBehaviours: camera, physics sim, networked cursor, HUD
+Assets/Unity.Cursory/Core      Unity.Cursory.Core     noEngineReferences: game rules, units, level data
+        ▲                                           (compiled by Tests/Unity.Cursory.Core as netstandard2.1 / C# 9)
+Assets/Unity.Cursory/Runtime   Unity.Cursory.Runtime  MonoBehaviours: camera, physics sim, networked cursor, HUD
         ▲                                           (references the library, Capture, Input System, URP 2D)
-Assets/UnityCursory/Editor    UnityCursory.Editor   ProjectSetup: writes the URP 2D pipeline and Main scene
-Tests/Core.Tests              dotnet NUnit (net10.0) over UnityCursory.Core, no editor needed
+Assets/Unity.Cursory/Editor    Unity.Cursory.Editor   ProjectSetup: writes the URP 2D pipeline and Main scene
+Tests/Core.Tests              dotnet NUnit (net10.0) over Unity.Cursory.Core, no editor needed
 Packages/manifest.json        file:../../MindAttic.Unity.Multiplayer/unity/com.mindattic.unity.multiplayer
                               file:../../MindAttic.Capture/unity/com.mindattic.capture
 ```
 
-- **Rendering:** URP with only the 2D renderer (`Assets/UnityCursory/Settings`), a global 2D light, and a
+- **Rendering:** URP with only the 2D renderer (`Assets/Unity.Cursory/Settings`), a global 2D light, and a
   top-down orthographic camera looking down -Z at the XY world plane (`TopDownCamera`: zoom 1 shows one
   world pixel per screen pixel).
 - **Physics:** Physics2D, gravity 0 (top-down). From UC-T6 the server steps it in Script mode at
@@ -67,7 +67,7 @@ Packages/manifest.json        file:../../MindAttic.Unity.Multiplayer/unity/com.m
 
 ## 5. The Laws {#UC-§5}
 
-UnityCursory **inherits the org-wide house rules** in
+Unity.Cursory **inherits the org-wide house rules** in
 [`../../MindAttic.HouseRules.md`](../../MindAttic.HouseRules.md). Of note here: [HOUSE-LAW-8] (done is
 verified, not asserted), [HOUSE-LAW-12] (artifacts also live in the repo), [HOUSE-LAW-13] (LF-only,
 enforced by the root `.gitattributes`). It also inherits the library's laws: UM-LAW-1 (the server owns
@@ -92,7 +92,7 @@ angular 2.0. Level masses stay clear of the 1.5 and 3.0 thresholds. A tuning cha
 ### UC-LAW-3 — World pixels in data and on the wire; metres in the engine {#UC-LAW-3}
 *Ports CUR-LAW-3.* Levels, game rules and network payloads speak Cursory's world pixels. Physics2D and
 transforms run in metres, one Unity unit per metre, at `WorldUnits.PixelsPerMeter` = 100. The conversion
-happens only at the engine boundary, through `WorldUnits` (`Assets/UnityCursory/Core/WorldUnits.cs`).
+happens only at the engine boundary, through `WorldUnits` (`Assets/Unity.Cursory/Core/WorldUnits.cs`).
 
 ### UC-LAW-4 — Static geometry is sent once per level {#UC-LAW-4}
 *Ports CUR-LAW-6.* Walls and world labels never move, so they go to a client once when it joins and
@@ -105,7 +105,7 @@ compound shape, on the nearest piece). You grab the rim, not the interior; an ed
 what gives a body torque. The raw click position, not a collision-resolved cursor, picks the grab.
 
 ### UC-LAW-6 — Core is engine-free and tested without the editor {#UC-LAW-6}
-Game rules that don't need Unity live in `Assets/UnityCursory/Core` (`noEngineReferences`, C# 9) and are
+Game rules that don't need Unity live in `Assets/Unity.Cursory/Core` (`noEngineReferences`, C# 9) and are
 covered by `dotnet test Tests/Core.Tests` (NUnit). Runtime code is a thin layer over Core; a rule that
 can be decided without a `MonoBehaviour` is decided in Core.
 
@@ -126,7 +126,7 @@ interface so a compact snapshot can replace them without touching gameplay code.
   backend, and the local multiplayer and Capture packages. Opens and compiles in batch mode with no
   errors. Engine-free Core verified by `dotnet test Tests/Core.Tests` (`WorldUnitsTests`,
   `SimulationRateTests`).
-- ✅ **Core model and level schema** (UC-T4): `Assets/UnityCursory/Core/Model` ports Cursory's
+- ✅ **Core model and level schema** (UC-T4): `Assets/Unity.Cursory/Core/Model` ports Cursory's
   `GameState.cs` engine-free: `Block` and compound `Shape`/`ShapePiece` (Mass), `Wall`, `WorldLabel`,
   `BlockGoal`/`ShapeGoal` (centre / every piece centre strictly inside), the circuit (`CircuitComponent`
   with `ComponentKind`, `Terminal` with `TerminalPolarity`, `Wire`), `Vote` (`VoteKind`, 2/3 quorum,
@@ -138,9 +138,9 @@ interface so a compact snapshot can replace them without touching gameplay code.
 
 - ✅ **Levels L1-L14, loader and votes** (UC-T5): `Core/Levels/LevelSeeds` ports Cursory's
   `RoomState.SeedLevel1..14` one for one, with Cursory's own Masses (1, 1.1, 1.3, 2, 2.2, 2.6), all clear of
-  the 1.5 and 3.0 thresholds. The editor menu `UnityCursory/Write Level Assets` (`LevelAssetWriter`) writes
-  them as `LevelAsset` ScriptableObjects (`Assets/UnityCursory/Levels/L01..L14.asset`) and the ordered
-  `LevelLibrary` (`Assets/UnityCursory/Resources/UnityCursory/LevelLibrary.asset`, found with
+  the 1.5 and 3.0 thresholds. The editor menu `Unity.Cursory/Write Level Assets` (`LevelAssetWriter`) writes
+  them as `LevelAsset` ScriptableObjects (`Assets/Unity.Cursory/Levels/L01..L14.asset`) and the ordered
+  `LevelLibrary` (`Assets/Unity.Cursory/Resources/Unity.Cursory/LevelLibrary.asset`, found with
   `LevelLibrary.Load()`). `LevelLoader` holds the current level, plays a copy (`World`), and raises the
   geometry-resend and level-banner flags on load and reset; `VoteBox` runs reset and level votes against it.
   Verified by `dotnet test Tests/Core.Tests`: `LevelSeedTests`, `LevelAssetTests` (the committed assets read
@@ -158,12 +158,12 @@ interface so a compact snapshot can replace them without touching gameplay code.
   `Runtime/Physics/ServerSimulation` puts Physics2D in Script mode (also the project setting, so a client
   never simulates) and steps the world 1/30 s per tick of the session clock (`NetSession.Clock`, NGO's
   `NetworkTickSystem.Tick`), attaching only when the bound session runs as a Host or Server. Verified by
-  the PlayMode suite `Assets/UnityCursory/Tests/PlayMode` (`ServerPhysicsTests`: one cursor moves Mass 1.0
+  the PlayMode suite `Assets/Unity.Cursory/Tests/PlayMode` (`ServerPhysicsTests`: one cursor moves Mass 1.0
   but not 2.0, two move 2.0, an edge grab turns a bar, nothing moves without a tick, and a dedicated-server
   session steps once per network tick) and `dotnet test Tests/Core.Tests` (`GrabGeometryTests`).
 
 ## 7. Active frontier {#UC-§7}
-The UnityCursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
+The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
 [USER_STORIES.md](USER_STORIES.md). Next: UC-T7 (the networked cursor as the player object, driving
 `PhysicsWorld` grabs, and server-authoritative body sync).
 

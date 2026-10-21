@@ -1,6 +1,6 @@
 ---
 codex: 1
-project: UnityCursory
+project: Unity.Cursory
 code: UC
 layer: rfc
 status: accepted
@@ -9,7 +9,7 @@ updated: 2026-10-20
 
 # RFC 0001 — Port Cursory to Unity 6
 
-UnityCursory rebuilds [Cursory](https://github.com/mindattic/Cursory)'s co-op physics puzzle game in
+Unity.Cursory rebuilds [Cursory](https://github.com/mindattic/Cursory)'s co-op physics puzzle game in
 Unity 6 (6000.4.3f1) on top of [MindAttic.Unity.Multiplayer](https://github.com/mindattic/MindAttic.Unity.Multiplayer).
 It supports a dedicated server (hub-and-spoke) and a player-hosted listen server, and players join by IP:port or a join code.
 

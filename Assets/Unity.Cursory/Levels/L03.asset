@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b84e94ea418b8534f8f61a1811eb7c9e, type: 3}
+  m_Name: L03
+  m_EditorClassIdentifier: Unity.Cursory.Runtime::Unity.Cursory.LevelAsset
+  Data:
+    Number: 3
+    Title: Pivot the couch
+    Blocks: []
+    Shapes:
+    - Id: L3-shape
+      X: 2800
+      Y: 5000
+      Angle: 0
+      Mass: 2
+      Color: '#7FBF5A'
+      Pieces:
+      - LocalX: 0
+        LocalY: 0
+        HalfW: 220
+        HalfH: 55
+      - LocalX: -165
+        LocalY: -165
+        HalfW: 55
+        HalfH: 165
+    Walls:
+    - Id: L3-wall
+      X: 5000
+      Y: 5000
+      W: 180
+      H: 700
+    BlockGoals: []
+    ShapeGoals:
+    - Id: L3-goal
+      X: 7200
+      Y: 5000
+      W: 1000
+      H: 1000
+      TargetShapeId: L3-shape
+    Components: []
+    Terminals: []
+    Wires: []
+    Labels:
+    - Id: L3-label
+      X: 5000
+      Y: 3300
+      Title: "Level 3 \u2014 Pivot the couch"
+      Subtitle: Grab the L's edges and route it around the wall onto the pad. Two
+        cursors to turn it.

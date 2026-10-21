@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace UnityCursory.Core.Tests
+namespace Unity.Cursory.Core.Tests
 {
     /// <summary>Ported from Cursory.Tests/VoteAndLevelTests.cs, over <see cref="VoteBox"/> and <see cref="LevelLoader"/>.</summary>
     public class VoteAndLevelTests

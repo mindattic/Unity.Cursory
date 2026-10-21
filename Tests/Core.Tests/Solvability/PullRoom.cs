@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace UnityCursory.Core.Tests.Solvability
+namespace Unity.Cursory.Core.Tests.Solvability
 {
     /// <summary>
     /// A headless stand-in for the server's Physics2D world, just faithful enough to answer "can two cursors

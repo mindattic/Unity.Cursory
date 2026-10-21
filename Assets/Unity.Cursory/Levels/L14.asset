@@ -1,0 +1,110 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b84e94ea418b8534f8f61a1811eb7c9e, type: 3}
+  m_Name: L14
+  m_EditorClassIdentifier: Unity.Cursory.Runtime::Unity.Cursory.LevelAsset
+  Data:
+    Number: 14
+    Title: Light the bulb
+    Blocks: []
+    Shapes: []
+    Walls: []
+    BlockGoals: []
+    ShapeGoals: []
+    Components:
+    - Kind: 0
+      Id: battery
+      X: 3000
+      Y: 5000
+      W: 360
+      H: 900
+      Label: Battery
+      TerminalIds:
+      - bat+
+      - bat-
+    - Kind: 1
+      Id: resistor
+      X: 5000
+      Y: 3900
+      W: 700
+      H: 200
+      Label: Resistor
+      TerminalIds:
+      - r-a
+      - r-b
+    - Kind: 2
+      Id: bulb
+      X: 6800
+      Y: 4400
+      W: 360
+      H: 360
+      Label: Bulb
+      TerminalIds:
+      - b-a
+      - b-b
+    Terminals:
+    - Id: bat+
+      X: 3000
+      Y: 4650
+      Polarity: 1
+    - Id: bat-
+      X: 3000
+      Y: 5350
+      Polarity: 2
+    - Id: r-a
+      X: 4700
+      Y: 3900
+      Polarity: 0
+    - Id: r-b
+      X: 5300
+      Y: 3900
+      Polarity: 0
+    - Id: b-a
+      X: 6500
+      Y: 4400
+      Polarity: 0
+    - Id: b-b
+      X: 7100
+      Y: 4400
+      Polarity: 0
+    Wires:
+    - Id: w1
+      Color: '#d98a3d'
+      Ax: 3400
+      Ay: 6100
+      Bx: 3900
+      By: 6100
+      ATerminalId: 
+      BTerminalId: 
+    - Id: w2
+      Color: '#caa472'
+      Ax: 4600
+      Ay: 6300
+      Bx: 5100
+      By: 6300
+      ATerminalId: 
+      BTerminalId: 
+    - Id: w3
+      Color: '#8fb3d9'
+      Ax: 5800
+      Ay: 6100
+      Bx: 6300
+      By: 6100
+      ATerminalId: 
+      BTerminalId: 
+    Labels:
+    - Id: L14-label
+      X: 5000
+      Y: 2900
+      Title: "Level 14 \u2014 Light the bulb"
+      Subtitle: "Drag the wire ends onto the posts: battery + \u2192 resistor \u2192
+        bulb \u2192 battery \u2212. Light it up."

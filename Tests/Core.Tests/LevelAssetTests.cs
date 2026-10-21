@@ -9,19 +9,19 @@ using System.Text;
 using NUnit.Framework;
 using YamlDotNet.RepresentationModel;
 
-namespace UnityCursory.Core.Tests
+namespace Unity.Cursory.Core.Tests
 {
     /// <summary>
-    /// The committed level ScriptableObjects (<c>Assets/UnityCursory/Levels/L01..L14.asset</c>) and the level
+    /// The committed level ScriptableObjects (<c>Assets/Unity.Cursory/Levels/L01..L14.asset</c>) and the level
     /// library are read straight from their Unity YAML and checked against <see cref="LevelSeeds"/>, so the
     /// assets the game loads can't drift from the ported levels. If this fails after a seed change, run the
-    /// editor's <c>UnityCursory/Write Level Assets</c> menu and commit the assets.
+    /// editor's <c>Unity.Cursory/Write Level Assets</c> menu and commit the assets.
     /// </summary>
     public class LevelAssetTests
     {
         private static readonly string AssetsRoot = FindAssetsRoot();
-        private static string LevelsFolder => Path.Combine(AssetsRoot, "UnityCursory", "Levels");
-        private static string LibraryPath => Path.Combine(AssetsRoot, "UnityCursory", "Resources", "UnityCursory", "LevelLibrary.asset");
+        private static string LevelsFolder => Path.Combine(AssetsRoot, "Unity.Cursory", "Levels");
+        private static string LibraryPath => Path.Combine(AssetsRoot, "Unity.Cursory", "Resources", "Unity.Cursory", "LevelLibrary.asset");
 
         private static IEnumerable<int> Numbers() => Enumerable.Range(1, LevelSeeds.Count);
 
@@ -33,7 +33,7 @@ namespace UnityCursory.Core.Tests
             var body = ReadAsset(path);
 
             Assert.That(Scalar(body, "m_Name"), Is.EqualTo($"L{number:00}"));
-            Assert.That(ScriptGuid(body), Is.EqualTo(MetaGuid(Path.Combine(AssetsRoot, "UnityCursory", "Runtime", "Levels", "LevelAsset.cs"))),
+            Assert.That(ScriptGuid(body), Is.EqualTo(MetaGuid(Path.Combine(AssetsRoot, "Unity.Cursory", "Runtime", "Levels", "LevelAsset.cs"))),
                 "the asset is not a LevelAsset");
 
             var data = (LevelData)Read(typeof(LevelData), body.Children[new YamlScalarNode("Data")]);
@@ -45,7 +45,7 @@ namespace UnityCursory.Core.Tests
         public void Library_lists_the_fourteen_levels_in_order()
         {
             var body = ReadAsset(LibraryPath);
-            Assert.That(ScriptGuid(body), Is.EqualTo(MetaGuid(Path.Combine(AssetsRoot, "UnityCursory", "Runtime", "Levels", "LevelLibrary.cs"))));
+            Assert.That(ScriptGuid(body), Is.EqualTo(MetaGuid(Path.Combine(AssetsRoot, "Unity.Cursory", "Runtime", "Levels", "LevelLibrary.cs"))));
             var listed = ((YamlSequenceNode)body.Children[new YamlScalarNode("Levels")]).Children
                 .Select(n => ((YamlScalarNode)((YamlMappingNode)n).Children[new YamlScalarNode("guid")]).Value)
                 .ToList();
@@ -144,7 +144,7 @@ namespace UnityCursory.Core.Tests
             for (var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory); dir != null; dir = dir.Parent)
             {
                 var assets = Path.Combine(dir.FullName, "Assets");
-                if (Directory.Exists(Path.Combine(assets, "UnityCursory"))) return assets;
+                if (Directory.Exists(Path.Combine(assets, "Unity.Cursory"))) return assets;
             }
             throw new DirectoryNotFoundException("could not find the Unity project's Assets folder above the test output");
         }
