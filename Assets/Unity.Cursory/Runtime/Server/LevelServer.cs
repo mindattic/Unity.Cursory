@@ -14,7 +14,8 @@ namespace Unity.Cursory
     /// <para>On every peer, before the session starts, it registers the UC-T7 network prefabs
     /// (<see cref="NetPrefabs.RegisterAll"/>) and makes the <see cref="CursorAvatar"/> the player prefab. The
     /// server's bodies replicate through the returned <see cref="NgoBodySync"/>, and a <see cref="GeometryBroadcast"/>
-    /// sends the static geometry after each level load (UC-LAW-4). Its Start runs before NetBootstrap's, which is
+    /// sends the static geometry after each level load (UC-LAW-4). A <see cref="LevelStateServer"/> runs the goal
+    /// pass each tick and publishes it through a spawned <see cref="LevelStateSync"/> (UC-T9). Its Start runs before NetBootstrap's, which is
     /// what starts the session.</para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -27,6 +28,8 @@ namespace Unity.Cursory
         private NetSession _session;
         private IBodySync _bodySync;
         private GeometryBroadcast _geometry;
+        private LevelStateServer _levelState;
+        private LevelStateSync _levelStateSync;
 
         /// <summary>The levels being played, or null until a server session starts.</summary>
         public LevelLoader Loader { get; private set; }
@@ -36,6 +39,9 @@ namespace Unity.Cursory
 
         /// <summary>True while a server session is running a level.</summary>
         public bool IsServing => Simulation != null && Simulation.World != null;
+
+        /// <summary>The server's goal pass and wire state (UC-T9), or null until a server session starts.</summary>
+        public LevelStateServer LevelState => _levelState;
 
         private void Start()
         {
@@ -92,6 +98,8 @@ namespace Unity.Cursory
             Simulation.Bind(_session);
             _geometry = new GeometryBroadcast();
             _geometry.Bind(Simulation);
+            _levelState = new LevelStateServer(Simulation, SpawnLevelState());
+            _levelState.Track(Loader.World);
             Debug.Log("[Unity.Cursory] Serving level " + Loader.CurrentLevel + " of " + Loader.LevelCount + ".");
         }
 
@@ -100,8 +108,29 @@ namespace Unity.Cursory
             StopServing();
         }
 
+        /// <summary>Spawns the server-owned <see cref="LevelStateSync"/> every client reads goal, bulb and wire state from.</summary>
+        private LevelStateSync SpawnLevelState()
+        {
+            GameObject prefab = NetPrefabs.LoadLevelState();
+            if (prefab == null) return null;
+            GameObject go = Instantiate(prefab);
+            go.GetComponent<NetworkObject>().Spawn();
+            _levelStateSync = go.GetComponent<LevelStateSync>();
+            return _levelStateSync;
+        }
+
         private void StopServing()
         {
+            _levelState?.Dispose();
+            _levelState = null;
+            if (_levelStateSync != null)
+            {
+                NetworkObject networkObject = _levelStateSync.GetComponent<NetworkObject>();
+                if (networkObject != null && networkObject.IsSpawned) networkObject.Despawn();
+                else Destroy(_levelStateSync.gameObject);
+                _levelStateSync = null;
+            }
+
             _geometry?.Dispose();
             _geometry = null;
             Simulation?.Dispose();

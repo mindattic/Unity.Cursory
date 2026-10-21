@@ -69,6 +69,11 @@ namespace Unity.Cursory.Tests
             Assert.That(server.Simulation.Loader, Is.SameAs(server.Loader), "GeometryBroadcast reads the loader");
             Assert.That(manager.NetworkConfig.PlayerPrefab, Is.Not.Null.And.Matches<GameObject>(p => p.GetComponent<CursorAvatar>() != null),
                 "the cursor avatar is the player object");
+            Assert.That(server.LevelState, Is.Not.Null, "UC-T9: the server runs the goal pass");
+            Assert.That(server.LevelState.Progress.World, Is.SameAs(server.Loader.World));
+            Assert.That(server.Simulation.Progress, Is.SameAs(server.LevelState.Progress), "CursorAvatar's wire grabs find it");
+            Assert.That(server.LevelState.Sync, Is.Not.Null.And.Matches<LevelStateSync>(s => s.IsSpawned && s.LevelNumber == 1),
+                "the level-state entity is spawned and published");
 
             long steps = server.Simulation.StepCount;
             float start = Time.realtimeSinceStartup;

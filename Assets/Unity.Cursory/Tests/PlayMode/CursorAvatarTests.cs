@@ -481,6 +481,50 @@ namespace Unity.Cursory.Tests
             AssertOnTimeout("Release never cleared the wire-end hold");
         }
 
+        /// <summary>UC-T9: a grabbed wire end unplugs, follows the cursor's Move, and snaps onto a terminal within 90 px on Release.</summary>
+        [UnityTest]
+        public IEnumerator GrabWireEnd_FollowsTheCursor_AndSnapsOntoATerminalOnRelease()
+        {
+            yield return StartAndJoinBoth();
+            var terminal = new Terminal { Id = "t", X = OriginX + 1000f, Y = OriginY - 600f };
+            Sim.Loader.World.Terminals.Add(terminal);
+            var levelState = new LevelStateServer(Sim);
+            try
+            {
+                levelState.Track(Sim.Loader.World);
+                Assert.That(Sim.Progress, Is.SameAs(levelState.Progress));
+                Wire wire = levelState.Progress.FindWire(WireId);
+
+                CursorAvatar aOnServer = null;
+                yield return WaitForAvatar(m_ServerNetworkManager, _a.LocalClientId, x => aOnServer = x);
+                CursorAvatar onA = null;
+                yield return WaitForAvatar(m_ClientNetworkManagers[0], _a.LocalClientId, x => onA = x);
+
+                onA.GrabWireEnd(WireId, true);
+                yield return WaitForConditionOrTimeOut(() => aOnServer.Held == GrabKind.WireEnd);
+                AssertOnTimeout("the server never recorded the wire-end grab");
+
+                var near = new Vector2(terminal.X + 50f, terminal.Y + 40f);   // 64 px off: inside WireSnapRadius
+                yield return WaitForConditionOrTimeOut(() =>
+                {
+                    onA.Move(near);   // unreliable: resend until it lands
+                    return wire.Ax == near.x && wire.Ay == near.y;
+                });
+                AssertOnTimeout("the held end never followed the cursor");
+                Assert.That(wire.IsAPlugged, Is.False);
+
+                onA.Release();
+                yield return WaitForConditionOrTimeOut(() => wire.ATerminalId == "t");
+                AssertOnTimeout("releasing the end near the terminal never plugged it in");
+                Assert.That((wire.Ax, wire.Ay), Is.EqualTo((terminal.X, terminal.Y)), "the end moves onto the terminal");
+                Assert.That(aOnServer.Held, Is.EqualTo(GrabKind.None));
+            }
+            finally
+            {
+                levelState.Dispose();
+            }
+        }
+
         [UnityTest]
         public IEnumerator ANonOwner_CannotMoveAnotherCursor()
         {

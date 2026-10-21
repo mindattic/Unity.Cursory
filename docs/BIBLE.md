@@ -189,11 +189,15 @@ interface so a compact snapshot can replace them without touching gameplay code.
   Physics2D poses and publishes it through `Runtime/Levels/LevelStateSync`, a server-owned `NetEntity`:
   `[Synced]` level number, goal count, solved bitmask (block goals then shape goals), circuit, bulb and win,
   plus the wires (ends and plugged terminal indices) by a reliable `[ToClients]` call on change and a
-  `[ToClient]` answer to a late joiner's `[ToServer]` request. Verified by `dotnet test Tests/Core.Tests`
+  `[ToClient]` answer to a late joiner's `[ToServer]` request. `LevelServer` spawns that entity (prefab
+  `Resources/Unity.Cursory/LevelState`, written by `NetPrefabWriter`) and runs the pass on a server session;
+  the tracked `LevelProgress` is `ServerSimulation.Progress`, re-tracked after a load or reset, and the UC-T7
+  cursor's `GrabWireEnd`, `Move` and `Release` pick a wire end up, drag it and snap it through it. Verified by `dotnet test Tests/Core.Tests`
   (`CircuitTests`, ported from Cursory.Tests, and `GoalProgressTests`) and PlayMode `LevelStateServerTests`
   (a real grab drags a block onto its pad; wiring level 14 lights the bulb on the next tick) and
   `LevelStateSyncTests` (host and client over loopback: goal, win, bulb and wires reach the client; a late
-  joiner gets the wires).
+  joiner gets the wires), `CursorAvatarServerAndClientsTests.GrabWireEnd_FollowsTheCursor_AndSnapsOntoATerminalOnRelease`
+  and `LevelServerTests`.
 
 ## 7. Active frontier {#UC-§7}
 The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in

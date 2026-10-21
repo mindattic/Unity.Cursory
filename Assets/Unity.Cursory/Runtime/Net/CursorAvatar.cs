@@ -42,8 +42,9 @@ namespace Unity.Cursory
     /// matches, so a stale client cannot grab a shape through <see cref="Grab"/> after a reset relabels an id.</para>
     /// <para><see cref="GrabWall"/> lands the click on the wall's rim (UC-LAW-5) like any other grab, but a wall
     /// never moves, so nothing is added to <see cref="PhysicsWorld"/>: holding one is bookkeeping for a future
-    /// tether (UC-T8). <see cref="GrabWireEnd"/> is the same kind of bookkeeping for a circuit wire's loose end;
-    /// following the cursor, snapping onto a terminal and the circuit solve are UC-T9.</para>
+    /// tether (UC-T8). <see cref="GrabWireEnd"/> picks up a circuit wire's end through the session's
+    /// <see cref="ServerSimulation.Progress"/> (UC-T9): it unplugs, follows <see cref="Move"/>, and on
+    /// <see cref="Release"/> snaps onto a terminal within <see cref="Tuning.WireSnapRadius"/>.</para>
     /// <para>Static geometry (BIBLE UC-LAW-4) rides on this entity too: the server calls
     /// <see cref="ReceiveGeometry"/> on an avatar as soon as it spawns, and again on every avatar whenever
     /// <see cref="LevelLoader.ConsumeGeometryRebroadcast"/> says a level load or reset happened
@@ -123,6 +124,16 @@ namespace Unity.Cursory
             }
         }
 
+        /// <summary>The current level's goals and live wires (UC-T9), or null off the server or when nothing tracks them.</summary>
+        private LevelProgress Progress
+        {
+            get
+            {
+                ServerSimulation sim = ServerSimulation.For(Session);
+                return sim != null ? sim.Progress : null;
+            }
+        }
+
         // client -> server -------------------------------------------------------------------------------------
 
         /// <summary>The owner's raw cursor position, in world pixels (BIBLE UC-LAW-1: the server never trusts a body's position from a client, only this).</summary>
@@ -141,7 +152,7 @@ namespace Unity.Cursory
         [ToServer]
         public partial void GrabWall(string wallId, float clickX, float clickY);
 
-        /// <summary>Grabs end A (<paramref name="endA"/> true) or end B of wire <paramref name="wireId"/>; the circuit itself is UC-T9.</summary>
+        /// <summary>Grabs end A (<paramref name="endA"/> true) or end B of wire <paramref name="wireId"/>: it unplugs, follows the cursor and snaps on release.</summary>
         [ToServer]
         public partial void GrabWireEnd(string wireId, bool endA);
 
@@ -224,6 +235,7 @@ namespace Unity.Cursory
 
             Position = worldPos;
             World?.MoveCursor(OwnerClientId, worldPos.x, worldPos.y);
+            if (_heldKind == GrabKind.WireEnd) Progress?.MoveCursor(OwnerClientId, worldPos.x, worldPos.y);
         }
 
         private void OnGrab(string blockId, float clickX, float clickY, NetSender sender)
@@ -270,12 +282,20 @@ namespace Unity.Cursory
         private void OnGrabWireEnd(string wireId, bool endA, NetSender sender)
         {
             ServerSimulation sim = ServerSimulation.For(Session);
-            if (sim == null || sim.Loader == null || !HasWire(sim.Loader.World, wireId))
+            if (sim == null)
+            {
+                return;
+            }
+
+            LevelProgress progress = sim.Progress;
+            if (progress != null ? progress.FindWire(wireId) == null : (sim.Loader == null || !HasWire(sim.Loader.World, wireId)))
             {
                 return;
             }
 
             ReleaseHeld();
+            // Picking the end up unplugs it; from here it follows Move and snaps onto a terminal on Release (UC-T9).
+            progress?.GrabWireEnd(OwnerClientId, wireId, endA ? WireEnd.A : WireEnd.B);
             SetHeld(GrabKind.WireEnd, wireId);
             _heldWireEndA = endA;
         }
@@ -323,6 +343,10 @@ namespace Unity.Cursory
             if (_heldKind == GrabKind.Block || _heldKind == GrabKind.Shape)
             {
                 World?.Release(OwnerClientId);
+            }
+            else if (_heldKind == GrabKind.WireEnd)
+            {
+                Progress?.ReleaseWireEnd(OwnerClientId);   // snaps onto a terminal within WireSnapRadius (UC-T9)
             }
 
             _heldKind = GrabKind.None;

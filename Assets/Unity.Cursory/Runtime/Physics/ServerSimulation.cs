@@ -42,6 +42,12 @@ namespace Unity.Cursory
         /// </summary>
         public LevelLoader Loader { get; set; }
 
+        /// <summary>
+        /// The current level's goals, bulb and live wires (UC-T9), set by <see cref="LevelStateServer.Track"/>;
+        /// <see cref="CursorAvatar"/>'s wire-end grabs, moves and releases go through it. Null when nothing tracks one.
+        /// </summary>
+        public LevelProgress Progress { get; set; }
+
         /// <summary>The session this simulation is bound to (<see cref="Bind"/>); null when none is.</summary>
         public NetSession BoundSession => _session;
 

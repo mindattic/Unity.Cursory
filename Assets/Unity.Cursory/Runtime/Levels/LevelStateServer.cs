@@ -9,12 +9,13 @@ namespace Unity.Cursory
     /// bodies' Physics2D poses and publishes the result through a <see cref="LevelStateSync"/>.
     /// </summary>
     /// <remarks>
-    /// <para>Call <see cref="Track"/> with the same <see cref="LevelData"/> the <see cref="PhysicsWorld"/> was built
-    /// from (<see cref="LevelLoader.World"/>) on every level load and reset.</para>
-    /// <para>Wire-end grabbing goes through <see cref="Progress"/>: the networked cursor's server handlers call
-    /// <see cref="LevelProgress.GrabWireEnd"/> (with the cursor's client id) when a player picks a wire end up,
-    /// <see cref="LevelProgress.MoveCursor"/> on every cursor move so the held end follows, and
-    /// <see cref="LevelProgress.ReleaseWireEnd"/> on release, which snaps it within
+    /// <para>It tracks the simulation's <see cref="LevelLoader.World"/> (the same <see cref="LevelData"/> the
+    /// <see cref="PhysicsWorld"/> is built from) and re-tracks it by itself after a load or reset; without a loader,
+    /// call <see cref="Track"/>. The tracked <see cref="LevelProgress"/> is also <see cref="ServerSimulation.Progress"/>.</para>
+    /// <para>Wire-end grabbing goes through it: <see cref="CursorAvatar"/>'s server handlers call
+    /// <see cref="LevelProgress.GrabWireEnd"/> (keyed by the cursor's owner client id) on <c>GrabWireEnd</c>,
+    /// <see cref="LevelProgress.MoveCursor"/> on every <c>Move</c> so the held end follows, and
+    /// <see cref="LevelProgress.ReleaseWireEnd"/> on <c>Release</c>, which snaps it within
     /// <see cref="Tuning.WireSnapRadius"/>. The next tick's evaluation lights the bulb and publishes the wires.</para>
     /// </remarks>
     public sealed class LevelStateServer : IDisposable
@@ -45,13 +46,25 @@ namespace Unity.Cursory
         {
             if (world == null) throw new ArgumentNullException(nameof(world));
             Progress = new LevelProgress(world);
+            if (_sim != null) _sim.Progress = Progress;
             Evaluate();
             return Progress;
         }
 
-        /// <summary>One goal pass now: evaluate against the current physics world and publish. Also run after every step.</summary>
+        /// <summary>
+        /// One goal pass now: evaluate against the current physics world and publish. Also run after every step.
+        /// When the simulation's <see cref="ServerSimulation.Loader"/> has moved to a new <see cref="LevelLoader.World"/>
+        /// (a load or reset), that world is tracked first.
+        /// </summary>
         public void Evaluate()
         {
+            var loader = _sim?.Loader;
+            if (loader != null && loader.World != null && (Progress == null || Progress.World != loader.World))
+            {
+                Track(loader.World);
+                return;
+            }
+
             var progress = Progress;
             if (progress == null) return;
             var wasWon = progress.IsLevelSolved;
@@ -80,6 +93,7 @@ namespace Unity.Cursory
         {
             if (_sim == null) return;
             _sim.Stepped -= OnStepped;
+            if (_sim.Progress == Progress) _sim.Progress = null;
             _sim = null;
         }
 

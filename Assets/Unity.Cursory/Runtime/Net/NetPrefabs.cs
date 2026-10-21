@@ -15,14 +15,20 @@ namespace Unity.Cursory
         /// <summary>The networked-body template's resource path, without the extension (<see cref="NgoBodySync"/>).</summary>
         public const string NetworkedBodyResourcePath = "Unity.Cursory/NetworkedBody";
 
+        /// <summary>The level-state entity's resource path, without the extension (<see cref="LevelStateSync"/>, UC-T9).</summary>
+        public const string LevelStateResourcePath = "Unity.Cursory/LevelState";
+
         /// <summary>The cursor player prefab; null if it has not been written yet (run the Unity.Cursory/Write Networked Prefabs menu).</summary>
         public static GameObject LoadCursorAvatar() => Resources.Load<GameObject>(CursorAvatarResourcePath);
 
         /// <summary>The networked-body template <see cref="NgoBodySync"/> instantiates per block/shape; null if it has not been written yet.</summary>
         public static GameObject LoadNetworkedBody() => Resources.Load<GameObject>(NetworkedBodyResourcePath);
 
+        /// <summary>The server-owned <see cref="LevelStateSync"/> prefab <see cref="LevelServer"/> spawns; null if it has not been written yet.</summary>
+        public static GameObject LoadLevelState() => Resources.Load<GameObject>(LevelStateResourcePath);
+
         /// <summary>
-        /// Registers both prefabs with <paramref name="session"/> (idempotent) and wraps the networked-body one in
+        /// Registers the cursor, networked-body and level-state prefabs with <paramref name="session"/> (idempotent) and wraps the networked-body one in
         /// an <see cref="NgoBodySync"/>. Call before the session starts.
         /// </summary>
         /// <exception cref="System.ArgumentNullException"><paramref name="session"/> is null.</exception>
@@ -48,6 +54,18 @@ namespace Unity.Cursory
             if (!session.Prefabs.Contains(avatar))
             {
                 session.Prefabs.Register(avatar);
+            }
+
+            GameObject levelState = LoadLevelState();
+            if (levelState == null)
+            {
+                throw new System.InvalidOperationException(
+                    "No " + LevelStateResourcePath + " prefab; run Unity.Cursory/Write Networked Prefabs first.");
+            }
+
+            if (!session.Prefabs.Contains(levelState))
+            {
+                session.Prefabs.Register(levelState);
             }
 
             NgoBodySync.Register(session, body);
