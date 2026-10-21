@@ -253,6 +253,14 @@ namespace Unity.Cursory.Tests
             yield return Frames(2);
             Assert.That(me.GetComponent<TetherRenderer>().Color, Is.EqualTo(me.PlayerColor), "the rope too");
             Assert.That(_client.World.CursorCount, Is.EqualTo(1), "the cursor is drawn");
+
+            // UM-T55: name and colour come from the library's roster, so a mid-game change reaches cursor and rope at once.
+            var rename = _session.Roster.RequestChange("Annie", PlayerColors.Palette[2]);
+            Assert.That(rename.IsCompleted && rename.Result.Accepted, Is.True, "a host's own change is applied at once");
+            Assert.That(me.PlayerName, Is.EqualTo("Annie"));
+            Assert.That((Color32)me.PlayerColor, Is.EqualTo(PlayerColors.Palette[2].ToColor32()));
+            yield return Frames(2);
+            Assert.That(me.GetComponent<TetherRenderer>().Color, Is.EqualTo(me.PlayerColor), "the rope follows");
         }
 
         /// <summary>

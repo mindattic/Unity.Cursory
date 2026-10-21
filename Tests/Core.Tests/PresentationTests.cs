@@ -246,17 +246,4 @@ namespace Unity.Cursory.Core.Tests
             Assert.That(HudText.Banner(new LevelData { Number = 4, Title = "Bare" }, 4), Is.EqualTo(("Level 4 — Bare", "")));
         }
     }
-
-    public class PlayerPaletteTests
-    {
-        [Test]
-        public void A_chosen_colour_wins_and_white_falls_back_to_the_seat()
-        {
-            Assert.That(PlayerPalette.Resolve(0x12, 0x34, 0x56, 255, 0), Is.EqualTo(((byte)0x12, (byte)0x34, (byte)0x56)));
-            Assert.That(PlayerPalette.Resolve(255, 255, 255, 255, 1), Is.EqualTo(PlayerPalette.ForSeat(1)));
-            Assert.That(PlayerPalette.ForSeat(0), Is.Not.EqualTo(PlayerPalette.ForSeat(1)));
-            Assert.That(PlayerPalette.ForSeat(PlayerPalette.Hex.Length), Is.EqualTo(PlayerPalette.ForSeat(0)), "wraps");
-            Assert.That(PlayerPalette.ForSeat(-1), Is.EqualTo(PlayerPalette.ForSeat(PlayerPalette.Hex.Length - 1)));
-        }
-    }
 }

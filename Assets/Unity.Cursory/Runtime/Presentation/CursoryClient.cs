@@ -363,8 +363,7 @@ namespace Unity.Cursory
         private void OnWhistled(Core.Whistle whistle)
         {
             if (whistle.PlayerId == _session.LocalClientId) return;
-            CursorAvatar who = CursorAvatar.ForClient(_session, whistle.PlayerId);
-            Color color = who != null ? who.PlayerColor
+            Color color = _session.Roster.TryGet(whistle.PlayerId, out Unity.Multiplayer.Core.NetPlayer who) ? (Color)who.UnityColor()
                 : HexColor.TryParse(whistle.Color, out byte r, out byte g, out byte b) ? (Color)new Color32(r, g, b, 255) : Color.white;
             World.AddRipple(new Vector2(whistle.X, whistle.Y), color);
             Audio.Play(whistle.Tone);

@@ -38,11 +38,10 @@ namespace Unity.Cursory
             worldPx.y = Mathf.Clamp(worldPx.y, -WhistleRangePx, WhistleRangePx);
 
             var tone = WhistleTone.For(sender.HasSeat ? (ulong)sender.SeatIndex : sender.ClientId);
-            var color = new Color32(255, 255, 255, 255);
-            if (Session != null && Session.TryGetSeat(sender.ClientId, out var seat))
-            {
-                color = new Color32(seat.Color.R, seat.Color.G, seat.Color.B, 255);
-            }
+            // The colour the roster draws the player in (UM-T55): their own, or their seat's palette colour.
+            var color = Session != null && Session.Roster.TryGet(sender.ClientId, out var player)
+                ? player.UnityColor()
+                : new Color32(255, 255, 255, 255);
             BroadcastWhistle(sender.ClientId, worldPx, tone, color);
         }
 

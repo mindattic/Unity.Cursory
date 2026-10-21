@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using Unity.Cursory.Core;
+using Unity.Multiplayer;
+using Unity.Multiplayer.Core;
 using UnityEngine;
 
 namespace Unity.Cursory
@@ -12,8 +14,8 @@ namespace Unity.Cursory
     /// <remarks>
     /// Every cursor spawned on a peer that shows the game (a host or a client, never a dedicated server) gets one
     /// automatically through <see cref="CursorAvatar.Spawned"/>. It only reads replicated state; nothing here
-    /// touches the simulation. <see cref="Color"/> follows <see cref="CursorAvatar.PlayerColor"/> (UC-T11): the colour
-    /// the player connected with, or their seat's <see cref="PlayerPalette"/> fallback.
+    /// touches the simulation. <see cref="Color"/> follows <see cref="CursorAvatar.PlayerColor"/> (UC-T11, UM-T55): the
+    /// player's colour in the session's roster (their own, or their seat's palette colour), following a mid-game change.
     /// </remarks>
     public sealed class TetherRenderer : MonoBehaviour
     {
@@ -49,11 +51,10 @@ namespace Unity.Cursory
             }
         }
 
-        /// <summary>The fallback colour for seat <paramref name="seat"/> when its player kept the default colour (<see cref="PlayerPalette"/>).</summary>
+        /// <summary>The colour of seat <paramref name="seat"/> for a player who never picked one (the library's <see cref="PlayerColors.ForSeat"/>).</summary>
         public static Color DefaultColorFor(ulong seat)
         {
-            var (r, g, b) = PlayerPalette.ForSeat((long)(seat % int.MaxValue));
-            return new Color32(r, g, b, 255);
+            return PlayerColors.ForSeat((int)(seat % int.MaxValue)).ToColor32();
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

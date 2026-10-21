@@ -258,13 +258,16 @@ interface so a compact snapshot can replace them without touching gameplay code.
   `MaButton`s, and vote endings and wins are `MaToast`s; the minimap (`Core/Presentation/MinimapTransform`) sits in a
   `MaPanel`; the per-player switches are `PlayerSettingsItems`, addable to any `MenuScreen` (UC-T12 puts them on the
   library front end's in-game menu). Player
-  colours: the server copies each seat's display name and colour (from the connection approval payload) onto the
-  cursor as `[Synced]` `SeatIndex`/`ChosenColor`/`DisplayName`; `CursorAvatar.PlayerColor` falls back to a
-  seat-based `PlayerPalette` when the player kept the library's default white, and the rope, arrow, minimap dot and
-  ripple all use it. Verified by `dotnet test Tests/Core.Tests` (`PointerGestureTests`, `CameraViewTests`,
-  `MinimapTransformTests`, `BodyPickerTests`, `HudTextTests`, `PlayerPaletteTests`) and the PlayMode
-  `PresentationTests` on a real Host (click vs drag vs grab, the zoom clamp, the HUD following and voting through the
-  board and level state, the payload's colour and name).
+  colours and names come from Unity.Multiplayer's player roster since UM-T55 (`NetSession.Roster`, on every peer, filled
+  from the connection approval payload, with the seat's palette colour for a player who kept the default white, and
+  following a mid-game `RequestChange`): the server writes only the owner's seat onto the cursor (`[Synced]`
+  `SeatIndex`), and `CursorAvatar.Player`/`PlayerColor`/`PlayerName` look the player up by seat, so the rope, arrow,
+  name tag, minimap dot and whistle ripple (`WhistleBoard` and `CursoryClient` read the roster too) all follow a rename;
+  Cursory's own seat palette is gone. Verified by `dotnet test Tests/Core.Tests` (`PointerGestureTests`,
+  `CameraViewTests`, `MinimapTransformTests`, `BodyPickerTests`, `HudTextTests`) and the PlayMode `PresentationTests`
+  on a real Host (click vs drag vs grab, the zoom clamp, the HUD following and voting through the board and level
+  state, the payload's colour and name, a rename reaching cursor and rope) and `FrontEndTests` (a client's rename
+  reaching the host's cursor and lobby).
 
 - ✅ **Front end** (UC-T12): Cursory adopts the library's drop-in `NetFrontEnd` exactly as a new game does (Unity.Multiplayer
   `docs/articles/front-end.md`), with no menu code of its own. `Main.unity` has it beside the `NetBootstrap` (MindAttic ▸

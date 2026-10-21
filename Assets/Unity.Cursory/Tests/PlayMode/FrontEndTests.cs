@@ -209,6 +209,14 @@ namespace Unity.Cursory.Tests
             yield return Wait(() => bob.PlayerName == "Bob", "Bob's cursor never carried his name");
             Assert.That((Color32)bob.PlayerColor, Is.EqualTo((Color32)Blue), "Bob's colour from his identity");
             Assert.That((Color32)CursorAvatar.Local(_host.Session).PlayerColor, Is.EqualTo((Color32)Red), "Ann's colour from hers");
+
+            // UM-T55: the cursors read the library's roster, so Bob's mid-game rename shows on the host at once.
+            var rename = _client.Session.Roster.RequestChange("Bobby", PlayerColors.Palette[2]);
+            yield return Wait(() => rename.IsCompleted, "Bob's rename was never answered");
+            Assert.That(rename.Result.Accepted, Is.True, rename.Result.Reason);
+            yield return Wait(() => bob.PlayerName == "Bobby", "the host never saw Bob's new name on his cursor");
+            Assert.That((Color32)bob.PlayerColor, Is.EqualTo(PlayerColors.Palette[2].ToColor32()), "and his new colour");
+            yield return Wait(() => FrontEndTesting.LobbyRoster(_host.FrontEnd).Rows.Any(r => r.Text == "Bobby"), "the lobby roster never followed");
             yield return Wait(() => _client.Client.LevelNumber == 1 && _client.Client.Hud.ShownLevel == 1, "the client never saw level 1");
 
             // Start hands the host over to the game: menus gone, HUD up, level banner.
