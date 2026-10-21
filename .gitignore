@@ -20,6 +20,7 @@
 !Tests/**/*.csproj
 *.sln
 *.slnx
+!Core.slnx
 *.suo
 *.user
 *.userprefs
