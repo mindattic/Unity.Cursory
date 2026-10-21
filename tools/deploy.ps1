@@ -123,17 +123,10 @@ if (Test-Path $buildDir) { Remove-Item -Recurse -Force $buildDir }
 # ── Build ────────────────────────────────────────────────────────────────────
 Write-Host ''
 Write-Host '  Building Windows Release player (Unity batch mode)...' -ForegroundColor Cyan
-# Unity re-serializes some tracked assets on import and build (URP settings, the build target's batching entry in
-# ProjectSettings). Those edits are put back afterwards, or the next deploy would find the repo dirty and stop
-# pulling; files that already had local changes before the build are left as they were.
-$dirtyBefore = @(git -C $repoDir diff --name-only HEAD)
+# The URP and ProjectSettings assets are committed in the form Unity 6000.4.3f1 writes them (UC-T30), so a build
+# leaves the repo clean and the next deploy can still pull.
 & (Join-Path $PSScriptRoot 'unity.ps1') -Method Unity.Cursory.EditorTools.CursoryBuild.BuildWindowsRelease -Log deploy-build -Graphics
 $buildExit = $LASTEXITCODE
-$churned = @(git -C $repoDir diff --name-only HEAD | Where-Object { $dirtyBefore -notcontains $_ })
-if ($churned.Count -gt 0) {
-    git -C $repoDir checkout HEAD -- @churned
-    Write-Host "    Restored $($churned.Count) file(s) Unity rewrote: $($churned -join ', ')" -ForegroundColor DarkGray
-}
 if ($buildExit -ne 0) {
     Write-Host "Build failed (exit $buildExit). Log: $repoDir\Logs\deploy-build.log" -ForegroundColor Red
     exit $buildExit
