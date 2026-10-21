@@ -139,7 +139,7 @@ namespace Unity.Cursory
             joint.maxForce = Tuning.GrabMaxForce;
             joint.frequency = Tuning.GrabFrequency;
             joint.dampingRatio = Tuning.GrabDamping;
-            _grabs[cursor] = new Held(body, joint, anchor.X, anchor.Y);
+            _grabs[cursor] = new Held(body, joint, anchor.X, anchor.Y) { TargetX = clickX, TargetY = clickY };
             return true;
         }
 
@@ -150,7 +150,84 @@ namespace Unity.Cursory
             if (!IsFinite(x) || !IsFinite(y)) return false;
             if (!_grabs.TryGetValue(cursor, out var grab)) return false;
             grab.Joint.target = ToMeters(x, y);
+            grab.TargetX = x;
+            grab.TargetY = y;
             return true;
+        }
+
+        /// <summary>
+        /// Updates <paramref name="cursor"/>'s rope (UC-T8) from the body's current pose and the cursor's current
+        /// target, and fills <paramref name="chain"/> (when given) with it in world pixels: the rim anchor, then every
+        /// corner the rope has caught. With <paramref name="segmented"/> the rope wraps the body's corners
+        /// (<see cref="TetherWrap"/>) and the grab pulls on the last one it caught, so pulling round a corner turns the
+        /// body; without, the rope is straight and the grab pulls on its rim anchor, as before. The last point of
+        /// <paramref name="chain"/> is where the grab pulls. False (and an empty chain) when the cursor holds nothing.
+        /// </summary>
+        public bool UpdateTether(ulong cursor, bool segmented, List<(float X, float Y)> chain = null)
+        {
+            ThrowIfDisposed();
+            chain?.Clear();
+            if (!_grabs.TryGetValue(cursor, out var grab)) return false;
+
+            var body = grab.Body;
+            var (bx, by, angle) = Pose(body.Id);
+            if (segmented)
+            {
+                var (lx, ly) = GrabGeometry.ToLocal(bx, by, angle, grab.TargetX, grab.TargetY);
+                grab.Wrap.Update(grab.AnchorX, grab.AnchorY, body.Corners, body.Rects, lx, ly);
+            }
+            else
+            {
+                grab.Wrap.Clear();
+            }
+
+            var contact = grab.Wrap.Contact(grab.AnchorX, grab.AnchorY, body.Corners);
+            var anchor = ToMeters(contact.X, contact.Y);
+            if (grab.Joint != null && grab.Joint.anchor != anchor) grab.Joint.anchor = anchor;
+
+            if (chain != null)
+            {
+                grab.Wrap.Chain(grab.AnchorX, grab.AnchorY, body.Corners, chain);
+                for (var i = 0; i < chain.Count; i++)
+                {
+                    chain[i] = GrabGeometry.ToWorld(bx, by, angle, chain[i].X, chain[i].Y);
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Optional cursor collision (UC-T8): (<paramref name="x"/>, <paramref name="y"/>) pushed out of every wall and
+        /// every compound shape (at its current pose) by the cursor disc's <paramref name="radius"/>
+        /// (<see cref="CursorCollision"/>). Blocks are not solid to the cursor, as in Cursory.
+        /// </summary>
+        public (float X, float Y) ResolveCursor(float x, float y, float radius = Tuning.CursorRadius)
+        {
+            ThrowIfDisposed();
+            if (!IsFinite(x) || !IsFinite(y)) return (x, y);
+            (x, y) = CursorCollision.OutOfWalls(_walls.Values, x, y, radius);
+            foreach (var body in _bodies.Values)
+            {
+                if (body.Pieces == null) continue;
+                var (bx, by, angle) = Pose(body.Id);
+                (x, y) = CursorCollision.OutOfShape(body.Pieces, bx, by, angle, x, y, radius);
+            }
+
+            return (x, y);
+        }
+
+        /// <summary>The centre of wall <paramref name="id"/> in world pixels (a <see cref="WallAnchor"/> is measured from it).</summary>
+        /// <exception cref="KeyNotFoundException">No wall has that id.</exception>
+        public (float X, float Y) WallCentre(string id)
+        {
+            Wall wall;
+            if (id == null || !_walls.TryGetValue(id, out wall))
+            {
+                throw new KeyNotFoundException("No wall '" + id + "' in this world.");
+            }
+
+            return (wall.X, wall.Y);
         }
 
         /// <summary>Lets go of whatever <paramref name="cursor"/> holds. False when it held nothing.</summary>
@@ -324,6 +401,9 @@ namespace Unity.Cursory
             public readonly float H;
             /// <summary>A shape's pieces; null for a block.</summary>
             public readonly List<ShapePiece> Pieces;
+            /// <summary>The corners and boxes a tether wraps, in the body's own frame (UC-T8).</summary>
+            public readonly IReadOnlyList<(float X, float Y)> Corners;
+            public readonly IReadOnlyList<BodyRect> Rects;
 
             public Body(string id, Rigidbody2D rigidbody, float w, float h, List<ShapePiece> pieces)
             {
@@ -332,6 +412,8 @@ namespace Unity.Cursory
                 W = w;
                 H = h;
                 Pieces = pieces;
+                Corners = pieces != null ? TetherGeometry.ShapeCorners(pieces) : TetherGeometry.BlockCorners(w, h);
+                Rects = pieces != null ? TetherGeometry.ShapeRects(pieces) : TetherGeometry.BlockRects(w, h);
             }
         }
 
@@ -341,6 +423,11 @@ namespace Unity.Cursory
             public readonly TargetJoint2D Joint;
             public readonly float AnchorX;
             public readonly float AnchorY;
+            /// <summary>Where the cursor pulls, in world pixels (the joint's target, unconverted).</summary>
+            public float TargetX;
+            public float TargetY;
+            /// <summary>The corners this grab's rope has caught (UC-T8).</summary>
+            public readonly TetherWrap Wrap = new TetherWrap();
 
             public Held(Body body, TargetJoint2D joint, float anchorX, float anchorY)
             {

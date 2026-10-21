@@ -221,9 +221,25 @@ interface so a compact snapshot can replace them without touching gameplay code.
   and the geometry resend. Verified by the PlayMode `LevelReloadTests` (a reset mid-grab and a level switch
   mid-grab, host + client).
 
+- ✅ **Tethers and per-player settings** (UC-T8): each player's own `[Synced]` `SegmentedTether` and
+  `CursorCollision` on their `CursorAvatar` (both off by default), set by the owner through the `[ToServer]`
+  `SetSegmentedTether(bool)` / `SetCursorCollision(bool)` (UC-T11's pause menu calls these), replacing Cursory's
+  room-wide booleans that every player's toggle overwrote. The server honours each cursor's own choice: with
+  collision, a `Move` is pushed out of walls and shapes by the 10 px cursor disc (`Core/Physics/CursorCollision`,
+  blocks stay non-solid as in Cursory); with a segmented tether, the rope catches on body corners
+  (`Core/Physics/TetherWrap`) and `PhysicsWorld.UpdateTether` re-anchors the grab's `TargetJoint2D` on the last
+  caught corner each tick, so pulling round a corner turns the body. Every grab's cursor is leashed within
+  `MaxPullPx` 300 of the rope's contact. The rope (anchor, caught corners) replicates as the `[Synced]` `Tether`
+  (`TetherSync`, world pixels); `CursorAvatar.TryGetRope` gives any peer the polyline and `TetherRenderer` draws
+  it with a `LineRenderer` in the player's colour on hosts and clients. One change from Cursory: its unwind test
+  never fired (the rope starts on the rim, inside its 6 px margin), so a caught corner now lets go when the rope's
+  bend flips. Verified by `dotnet test Tests/Core.Tests` (`TetherGeometryTests`, `TetherWrapTests`,
+  `CursorCollisionTests`) and the PlayMode suites `TetherPhysicsTests` and `TetherAvatarTests` (dedicated server +
+  two clients).
+
 ## 7. Active frontier {#UC-§7}
 The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
-[USER_STORIES.md](USER_STORIES.md). Next: UC-T8 (tethers and per-player settings on the UC-T7 cursor).
+[USER_STORIES.md](USER_STORIES.md).
 
 ## 8. Glossary {#UC-§8}
 - **World pixel** — Cursory's unit; 100 to a metre ([UC-LAW-3](#UC-LAW-3)).

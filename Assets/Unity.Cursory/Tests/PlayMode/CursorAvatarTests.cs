@@ -64,6 +64,9 @@ namespace Unity.Cursory.Tests
             };
         }
 
+        /// <summary>The level <see cref="BindWorld"/> plays; <see cref="OneLevel"/> unless a suite needs another.</summary>
+        protected virtual LevelData Level() => OneLevel();
+
         protected override void OnServerAndClientsCreated()
         {
             foreach (NetworkManager manager in m_NetworkManagers)
@@ -118,7 +121,7 @@ namespace Unity.Cursory.Tests
         protected void BindWorld(NetSession session)
         {
             var bodySync = new NgoBodySync(session, _bodyPrefab);
-            Sim = new ServerSimulation { Loader = new LevelLoader(new[] { OneLevel() }) };
+            Sim = new ServerSimulation { Loader = new LevelLoader(new[] { Level() }) };
             Sim.World = new PhysicsWorld(Sim.Loader.World, "UC-T7 world", bodySync);
             Sim.Bind(session);
             GeometrySync = new GeometryBroadcast();

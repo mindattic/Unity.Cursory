@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Unity.Cursory
 {
-    /// <summary>What a cursor currently holds, server side only (not replicated; UC-T8 renders a tether from this).</summary>
+    /// <summary>What a cursor currently holds, server side only (not replicated; the rope every peer draws is <see cref="CursorAvatar.Tether"/>, UC-T8).</summary>
     public enum GrabKind
     {
         None = 0,
@@ -209,6 +209,7 @@ namespace Unity.Cursory
         protected override void OnDespawned()
         {
             Despawned?.Invoke(this);
+            StopFollowingSimulation();
             NetSession session = Session;
             List<CursorAvatar> avatars;
             if (session != null && s_BySession.TryGetValue(session, out avatars))
@@ -233,6 +234,7 @@ namespace Unity.Cursory
                 return;
             }
 
+            worldPos = ConstrainCursor(worldPos);   // UC-T8: this player's cursor collision, then the leash
             Position = worldPos;
             World?.MoveCursor(OwnerClientId, worldPos.x, worldPos.y);
             if (_heldKind == GrabKind.WireEnd) Progress?.MoveCursor(OwnerClientId, worldPos.x, worldPos.y);
@@ -336,6 +338,7 @@ namespace Unity.Cursory
             _heldId = id;
             _heldAnchor = anchor;
             _heldWireEndA = false;
+            RefreshTether();
         }
 
         private void ReleaseHeld()
@@ -353,6 +356,7 @@ namespace Unity.Cursory
             _heldId = null;
             _heldAnchor = null;
             _heldWireEndA = false;
+            RefreshTether();
         }
 
         /// <summary>
