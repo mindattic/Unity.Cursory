@@ -3,8 +3,8 @@
     "rootNamespace": "Unity.Cursory",
     "references": [
         "Unity.Cursory.Core",
-        "MindAttic.Unity.Multiplayer",
-        "MindAttic.Unity.Multiplayer.Core",
+        "Unity.Multiplayer",
+        "Unity.Multiplayer.Core",
         "MindAttic.Capture.Unity",
         "Unity.InputSystem",
         "Unity.RenderPipelines.Core.Runtime",

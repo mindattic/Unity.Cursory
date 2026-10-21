@@ -4,8 +4,8 @@
     "references": [
         "Unity.Cursory.Core",
         "Unity.Cursory.Runtime",
-        "MindAttic.Unity.Multiplayer",
-        "MindAttic.Unity.Multiplayer.Core",
+        "Unity.Multiplayer",
+        "Unity.Multiplayer.Core",
         "Unity.Netcode.Runtime",
         "Unity.Networking.Transport",
         "UnityEngine.TestRunner",

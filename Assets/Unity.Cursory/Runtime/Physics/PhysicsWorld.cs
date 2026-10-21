@@ -13,7 +13,7 @@ namespace Unity.Cursory
     /// only here, through <see cref="WorldUnits"/> (UC-LAW-3).
     /// </summary>
     /// <remarks>
-    /// The mapping from Cursory's Aether world (MindAttic.Unity.Multiplayer RFC 0001): grab maxForce
+    /// The mapping from Cursory's Aether world (Unity.Multiplayer RFC 0001): grab maxForce
     /// <see cref="Tuning.GrabMaxForce"/>, frequency <see cref="Tuning.GrabFrequency"/>, damping
     /// <see cref="Tuning.GrabDamping"/>, target set by hand; ground friction to the world with maxForce
     /// <c>Mass × 40</c> and maxTorque <c>× 1.2</c>; <c>rb.mass = Mass × 5</c>, gravity 0, linear damping 1.5,

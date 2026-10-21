@@ -1,6 +1,6 @@
 using System;
-using MindAttic.Unity.Multiplayer;
-using MindAttic.Unity.Multiplayer.Core;
+using Unity.Multiplayer;
+using Unity.Multiplayer.Core;
 using Unity.Cursory.Core;
 using UnityEngine;
 

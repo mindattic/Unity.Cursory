@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using MindAttic.Unity.Multiplayer;
-using MindAttic.Unity.Multiplayer.Core;
+using Unity.Multiplayer;
+using Unity.Multiplayer.Core;
 using NUnit.Framework;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;

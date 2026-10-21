@@ -9,7 +9,7 @@
       }
     },
     "com.mindattic.unity.multiplayer": {
-      "version": "file:../../MindAttic.Unity.Multiplayer/unity/com.mindattic.unity.multiplayer",
+      "version": "file:../../Unity.Multiplayer/unity/com.mindattic.unity.multiplayer",
       "depth": 0,
       "source": "local",
       "dependencies": {
