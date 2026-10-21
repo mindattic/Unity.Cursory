@@ -18,7 +18,6 @@ namespace Unity.Cursory
     public sealed class PlayerSettingsItems
     {
         private readonly Func<CursorAvatar> _local;
-        private MenuScreen _screen;
 
         private PlayerSettingsItems(Func<CursorAvatar> local)
         {
@@ -34,14 +33,15 @@ namespace Unity.Cursory
         /// <summary>
         /// Adds the section and both switches to <paramref name="screen"/>. <paramref name="local"/> returns this peer's
         /// own cursor (null before it has spawned, when the switches do nothing). The switches re-read the synced settings
-        /// every time the screen shows.
+        /// every time the screen shows. The front end runs its in-game menu callbacks once (UM-T64), so this is added once
+        /// and listens to the screen once.
         /// </summary>
         /// <exception cref="ArgumentNullException">An argument is null.</exception>
         public static PlayerSettingsItems AddTo(MenuScreen screen, Func<CursorAvatar> local)
         {
             if (screen == null) throw new ArgumentNullException(nameof(screen));
             if (local == null) throw new ArgumentNullException(nameof(local));
-            var items = new PlayerSettingsItems(local) { _screen = screen };
+            var items = new PlayerSettingsItems(local);
             screen.AddSection("Your cursor");
             items.CursorCollision = screen.AddToggle("Cursor collision", false, on => local()?.SetCursorCollision(on));
             items.SegmentedTether = screen.AddToggle("Segmented tether", false, on => local()?.SetSegmentedTether(on));
@@ -50,20 +50,9 @@ namespace Unity.Cursory
             return items;
         }
 
-        /// <summary>
-        /// Shows the server's current values for this player's settings (without calling the server). A front end
-        /// rebuilds its menu screen (clearing these switches) and adds fresh items, so items whose switches are gone stop
-        /// listening.
-        /// </summary>
+        /// <summary>Shows the server's current values for this player's settings (without calling the server).</summary>
         public void Refresh()
         {
-            if (CursorCollision == null || SegmentedTether == null)
-            {
-                if (_screen != null) _screen.Shown -= Refresh;
-                _screen = null;
-                return;
-            }
-
             CursorAvatar me = _local();
             CursorCollision.SetValueWithoutNotify(me != null && me.IsSpawned && me.CursorCollision);
             SegmentedTether.SetValueWithoutNotify(me != null && me.IsSpawned && me.SegmentedTether);
