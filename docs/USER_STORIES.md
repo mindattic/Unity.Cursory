@@ -1,6 +1,6 @@
 ---
 codex: 1
-project: UnityCursory
+project: Unity.Cursory
 code: UC
 layer: stories
 status: living
@@ -8,7 +8,7 @@ updated: 2026-10-20
 ---
 <!-- GENERATED from MindAttic.Tickets/data/Tickets.db by `tickets db render`. Do not edit: this file is rewritten from the database; change stories and tickets with the tickets CLI. -->
 
-# UnityCursory — User Stories
+# Unity.Cursory — User Stories
 > ✅ done (shipped & tested) · 🟡 partial · ⬜ planned. Every ✅ cites the test.
 
 ## Priority backlog
@@ -36,3 +36,4 @@ _Nothing recorded yet._
 | UC-T13 | 2026-10-20 | feature | open | Dedicated server: Linux headless build via the library's Build Dedicated Server menu, Docker image + docker-compose with the rendezvous service, deployed per the library hosting guide (VPS default, RunPod over WebSocket), deploy.ps1. Design: MindAttic.Unity.Multiplayer docs/rfc/0001-architecture.md. | — |
 | UC-T14 | 2026-10-20 | chore | open | End-to-end test: dedicated server + 2 headless bot clients join by code and solve L2 (mass 2.0, needs both) automatically; runs in CI nightly. Design: MindAttic.Unity.Multiplayer docs/rfc/0001-architecture.md. | — |
 | UC-T15 | 2026-10-20 | docs | open | README to codex-standard/README-STYLE.md with screenshots and Quick start (host, join by IP/code, run a server), a 'How UnityCursory uses MindAttic.Unity.Multiplayer' page linked from the library's DocFX 'Porting a game' guide, tag v1.0.0. Design: MindAttic.Unity.Multiplayer docs/rfc/0001-architecture.md. | — |
+| UC-T16 | 2026-10-20 | chore | closed | Rename UnityCursory to Unity.Cursory: part of the Unity-fleet naming pass (all Unity game repos get a Unity. prefix). Covers GitHub repo, local folder, git remote URL, ticket DB key (tickets repos rename), C# namespaces/asmdefs/class comments throughout Assets/, README/AGENTS/CLAUDE docs, docs/rfc references to UnityCursory in MindAttic.Unity.Multiplayer (which UC-T7 depends on by name), and any other repo that references UnityCursory by name (grep workspace-wide). Owner-approved 2026-10-20 as part of the Unity Fleet Rename effort; run crossrepo from a General (workspace-root) window so the folder move is included. | 7be95f1 |
