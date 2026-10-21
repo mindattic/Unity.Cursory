@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
+using Unity.Multiplayer.UI;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -146,6 +147,9 @@ namespace Unity.Cursory
             // A bot is headless (-batchmode -nographics), and a headless NetBootstrap serves by itself from its Start.
             // Disabled before Start, it never starts anything; the bot joins with the session it made in Awake.
             bootstrap.enabled = false;
+            // A bot plays by itself: the scene's front end (UC-T12) builds no menus for it, even in a window.
+            NetFrontEnd frontEnd = bootstrap.GetComponent<NetFrontEnd>();
+            if (frontEnd != null) frontEnd.enabled = false;
             NetConfig config = bootstrap.BuildConfig();
             config.JoinCodes = JoinCodeProvider.Rendezvous;
             if (HeadlessBootstrap.IsHeadless) HeadlessBootstrap.Apply(config.TickRate);

@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86a8c1574edfa144898bc38d9707a542, type: 3}
+  m_Name: FrontEndSettings
+  m_EditorClassIdentifier: Unity.Multiplayer.UI::Unity.Multiplayer.UI.NetFrontEndSettings
+  title: Cursory
+  joinByAddress: 1
+  joinByCode: 1
+  settingsScreen: 1
+  quitButton: 1
+  dimBehindMenu: 1
+  showLobby: 1
+  gameScene: 
+  kickMessage: The host removed you from the game.
+  pauseMenu: 1
+  pauseTitle: Menu
+  autoReconnect: 1
+  reconnectAttempts: 5
+  reconnectFirstDelay: 1
+  reconnectMaxDelay: 8
+  theme: {fileID: 0}
+  sortingOrder: 500

@@ -283,6 +283,7 @@ GameObject:
   - component: {fileID: 1789658985}
   - component: {fileID: 1789658984}
   - component: {fileID: 1789658983}
+  - component: {fileID: 1789658988}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -432,6 +433,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1789658988
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1789658982}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0f9c401c125b804c9a5a7f6528704cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Multiplayer.UI::Unity.Multiplayer.UI.NetFrontEnd
+  bootstrap: {fileID: 1789658984}
+  settings: {fileID: 11400000, guid: 4883300b6d8761143a307ba4ed9e108d, type: 2}
 --- !u!1 &1896114667
 GameObject:
   m_ObjectHideFlags: 0

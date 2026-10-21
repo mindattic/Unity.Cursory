@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Cursory.Core;
 using Unity.Multiplayer;
+using Unity.Multiplayer.UI;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -13,12 +14,15 @@ namespace Unity.Cursory
     /// The client presentation (UC-T11): everything a player sees and does on a peer that shows the game, bound to one
     /// <see cref="NetSession"/>. It owns the camera (<see cref="CameraView"/>: drag empty space to pan, wheel to zoom
     /// 0.1 to 4), the pointer (<see cref="PointerInput"/>: grab, release, and click-vs-drag whistles), the world
-    /// (<see cref="WorldView"/>), the HUD (<see cref="CursoryHud"/>, from MindAttic Components), the Esc menu
-    /// (<see cref="CursoryPauseMenu"/>), the minimap (<see cref="MinimapView"/>) and whistle sound
-    /// (<see cref="WhistleAudio"/>). It sends only intents (BIBLE UC-LAW-1): <see cref="CursorAvatar"/>'s Move and
-    /// grabs, and the <see cref="VoteBoard"/>'s votes and whistles.
+    /// (<see cref="WorldView"/>), the HUD (<see cref="CursoryHud"/>, from MindAttic Components), the minimap
+    /// (<see cref="MinimapView"/>) and whistle sound (<see cref="WhistleAudio"/>). It sends only intents (BIBLE
+    /// UC-LAW-1): <see cref="CursorAvatar"/>'s Move and grabs, and the <see cref="VoteBoard"/>'s votes and whistles.
     /// </summary>
     /// <remarks>
+    /// <para>The menus are the library's drop-in front end (UC-T12): the scene's <see cref="NetFrontEnd"/> gives the main
+    /// menu, lobby, dialogs, reconnect and the Esc in-game menu, to which this adds Cursory's per-player switches
+    /// (<see cref="PlayerSettingsItems"/>). The HUD shows only while the front end is in the game, and the world ignores
+    /// the pointer while any of its menus is up.</para>
     /// <para>A player build creates one at scene load next to the scene's <see cref="NetBootstrap"/>
     /// (<see cref="Boot"/>). A headless process (<c>-batchmode</c>, a dedicated server build, or a <c>-bot</c>) creates
     /// none: <see cref="ShouldPresent"/>. Tests create one with <see cref="Create"/> and drive its
@@ -37,6 +41,8 @@ namespace Unity.Cursory
         private readonly Dictionary<string, BodyPose> _poses = new Dictionary<string, BodyPose>();
         private readonly List<(float, float, float, float)> _wireEnds = new List<(float, float, float, float)>();
         private NetSession _session;
+        private NetFrontEnd _frontEnd;
+        private bool _wasBlocked = true;
         private TopDownCamera _camera;
         private VoteBoard _board;
         private LevelStateSync _levelState;
@@ -62,8 +68,11 @@ namespace Unity.Cursory
         /// <summary>The HUD.</summary>
         public CursoryHud Hud { get; private set; }
 
-        /// <summary>The Esc menu.</summary>
-        public CursoryPauseMenu Pause { get; private set; }
+        /// <summary>The library front end whose menus this plays under (null when the scene has none: no menus, HUD always on).</summary>
+        public NetFrontEnd FrontEnd => _frontEnd;
+
+        /// <summary>Cursory's switches on the front end's in-game menu, as last built (null until it is).</summary>
+        public PlayerSettingsItems Settings { get; private set; }
 
         /// <summary>The minimap.</summary>
         public MinimapView Minimap { get; private set; }
@@ -114,8 +123,11 @@ namespace Unity.Cursory
         /// <summary>The replicated bodies of the current level, by id (empty while a level is being swapped).</summary>
         public IReadOnlyDictionary<string, Transform> Bodies => _bodies;
 
-        /// <summary>True while the Esc menu is open: the world ignores the pointer.</summary>
-        public bool IsMenuOpen => Pause != null && Pause.IsOpen;
+        /// <summary>True while the front end is in the game (always, without one): the HUD shows only then.</summary>
+        public bool IsInGame => _frontEnd == null || _frontEnd.State == FrontEndState.InGame;
+
+        /// <summary>True while a front-end menu is up (main menu, lobby, dialogs, the Esc menu): the world ignores the pointer.</summary>
+        public bool IsMenuOpen => !IsInGame || (_frontEnd != null && _frontEnd.PauseMenu != null && _frontEnd.PauseMenu.IsOpen);
 
         /// <summary>
         /// True when this process should show the game: not batch mode (a dedicated server, a CI run, a headless bot),
@@ -148,12 +160,17 @@ namespace Unity.Cursory
             if (!ShouldPresent(Environment.GetCommandLineArgs(), Application.isBatchMode)) return;
             NetBootstrap bootstrap = NetBootstrap.Instance;
             if (bootstrap == null || bootstrap.Session == null || FindAnyObjectByType<CursoryClient>() != null) return;
-            Create(bootstrap.Session, UnityEngine.Camera.main);
+            NetFrontEnd frontEnd = bootstrap.GetComponent<NetFrontEnd>();
+            Create(bootstrap.Session, UnityEngine.Camera.main, frontEnd != null ? frontEnd : NetFrontEnd.Instance);
         }
 
-        /// <summary>Builds the presentation for <paramref name="session"/>, driving <paramref name="camera"/> (the main camera when null).</summary>
+        /// <summary>
+        /// Builds the presentation for <paramref name="session"/>, driving <paramref name="camera"/> (the main camera when
+        /// null), under <paramref name="frontEnd"/>'s menus: Cursory's switches join its in-game menu, the HUD's pause
+        /// button opens that menu, and the HUD shows only in the game. Without a front end the HUD always shows.
+        /// </summary>
         /// <exception cref="ArgumentNullException"><paramref name="session"/> is null.</exception>
-        public static CursoryClient Create(NetSession session, UnityEngine.Camera camera = null)
+        public static CursoryClient Create(NetSession session, UnityEngine.Camera camera = null, NetFrontEnd frontEnd = null)
         {
             if (session == null) throw new ArgumentNullException(nameof(session));
             if (camera == null) camera = UnityEngine.Camera.main;
@@ -175,12 +192,28 @@ namespace Unity.Cursory
             client.World.transform.SetParent(go.transform, false);
             client.Audio = go.AddComponent<WhistleAudio>();
             client.Hud = CursoryHud.Create(session, LevelCount());
-            client.Hud.PauseRequested += () => client.Pause.Open();
             client.Minimap = MinimapView.Create(client.Hud.Canvas);
-            client.Pause = CursoryPauseMenu.Create(() => client.LocalAvatar);
-            client.Pause.Stack.Opened += client.Pointer.CancelAll;
+            client._frontEnd = frontEnd;
+            if (frontEnd != null)
+            {
+                frontEnd.AddPauseMenuItems(s => client.Settings = PlayerSettingsItems.AddTo(s, () => client.LocalAvatar));
+                client.Hud.PauseRequested += client.OpenMenu;
+            }
+
+            client.ShowHud(client.IsInGame);
             client.ApplyCamera();
             return client;
+        }
+
+        /// <summary>Opens the front end's in-game menu (the HUD's pause button; Esc does the same through the front end).</summary>
+        public void OpenMenu()
+        {
+            if (_frontEnd != null && _frontEnd.State == FrontEndState.InGame && _frontEnd.PauseMenu != null) _frontEnd.PauseMenu.Open();
+        }
+
+        private void ShowHud(bool show)
+        {
+            if (Hud != null && Hud.Canvas != null && Hud.Canvas.gameObject.activeSelf != show) Hud.Canvas.gameObject.SetActive(show);
         }
 
         /// <summary>The level definition every client holds for level <paramref name="number"/> (the Resources library, else Core's seeds); null when none.</summary>
@@ -236,6 +269,14 @@ namespace Unity.Cursory
 
         private void Update()
         {
+            // The front end's menus come and go: the HUD shows only in the game, and a menu opening drops any grab or pan.
+            bool inGame = IsInGame;
+            ShowHud(inGame);
+            bool blocked = IsMenuOpen;
+            if (blocked && !_wasBlocked) Pointer.CancelAll();
+            if (!blocked && _wasBlocked && inGame && Hud.ShownLevel > 0) Hud.ShowBanner(Hud.ShownLevel);   // the level's signpost on entering
+            _wasBlocked = blocked;
+
             FindRoomEntities();
             if (ReadDevices) ReadMouse();
             SendMove();
@@ -262,7 +303,6 @@ namespace Unity.Cursory
         {
             if (_board != null) _board.Whistled -= OnWhistled;
             Hud?.Destroy();
-            Pause?.Destroy();
             Minimap?.Destroy();
         }
 

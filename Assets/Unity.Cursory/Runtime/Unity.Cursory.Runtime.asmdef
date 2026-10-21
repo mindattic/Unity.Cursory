@@ -5,6 +5,7 @@
         "Unity.Cursory.Core",
         "Unity.Multiplayer",
         "Unity.Multiplayer.Core",
+        "Unity.Multiplayer.UI",
         "Unity.Netcode.Runtime",
         "Unity.Collections",
         "MindAttic.Capture.Unity",

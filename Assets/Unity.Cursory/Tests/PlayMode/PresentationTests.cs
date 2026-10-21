@@ -17,8 +17,8 @@ namespace Unity.Cursory.Tests
     /// <summary>
     /// UC-T11: the client presentation on a real Host (NetBootstrap + LevelServer over loopback, level 1): click vs
     /// drag (a quick click whistles through the VoteBoard, a 5 px drag pans instead, a press on the block grabs it),
-    /// the wheel zoom clamp, the HUD following the VoteBoard and LevelStateSync and voting through them, the pause
-    /// menu's per-player switches calling the owner's RPCs, player colours, and that a headless run shows nothing.
+    /// the wheel zoom clamp, the HUD following the VoteBoard and LevelStateSync and voting through them, player colours, and that a headless
+    /// run shows nothing (UC-T12's FrontEndTests cover the menus and the per-player switches).
     /// </summary>
     public class PresentationTests
     {
@@ -237,39 +237,6 @@ namespace Unity.Cursory.Tests
             Assert.That(hud.VoteTitle.Text, Is.EqualTo("Switch to Level 5?"));
             Assert.That(_server.Votes.Status.StartedBy, Is.EqualTo(me));
             Assert.That(hud.LevelSelect.Value, Is.EqualTo(2), "still Level 3 until the vote passes");
-        }
-
-        [UnityTest]
-        public IEnumerator The_pause_menu_switches_set_the_local_players_own_settings()
-        {
-            yield return StartHostAndClient();
-            CursorAvatar me = CursorAvatar.Local(_session);
-            CursoryPauseMenu pause = _client.Pause;
-            Assert.That(pause.IsOpen, Is.False, "closed until Esc");
-
-            pause.Open();
-            yield return null;
-            Assert.That(pause.IsOpen, Is.True);
-            Assert.That(pause.Root.Validate(), Is.Empty, "a valid MindAttic menu");
-            Assert.That(_client.Pointer.PointerDown(new Vector2(1700f, 900f), 0), Is.EqualTo(PressOutcome.Ignored), "the world ignores the pointer under the menu");
-            Assert.That(pause.Settings.CursorCollision.Value || pause.Settings.SegmentedTether.Value, Is.False, "both off by default");
-
-            pause.Settings.CursorCollision.Value = true;
-            yield return WaitFor(() => me.CursorCollision, "the switch never reached the server");
-            Assert.That(me.SegmentedTether, Is.False);
-            pause.Settings.SegmentedTether.Value = true;
-            yield return WaitFor(() => me.SegmentedTether, "the rope switch never reached the server");
-            pause.Settings.CursorCollision.Value = false;
-            yield return WaitFor(() => !me.CursorCollision, "turning it off never reached the server");
-
-            pause.Resume.Click();
-            yield return null;
-            Assert.That(pause.IsOpen, Is.False, "Resume closes it");
-            pause.Settings.SegmentedTether.SetValueWithoutNotify(false);
-            pause.Open();
-            yield return null;
-            Assert.That(pause.Settings.SegmentedTether.Value, Is.True, "reopening shows the server's values");
-            Assert.That(pause.Settings.CursorCollision.Value, Is.False);
         }
 
         [UnityTest]

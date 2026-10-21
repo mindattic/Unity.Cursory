@@ -25,6 +25,12 @@
         "com.unity.transport": "2.7.2"
       }
     },
+    "com.mindattic.unity.shared": {
+      "version": "file:../../Unity.Shared/unity/com.mindattic.unity.shared",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,

@@ -1,5 +1,6 @@
 using System.IO;
 using Unity.Multiplayer.Editor;
+using Unity.Multiplayer.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -26,12 +27,65 @@ namespace Unity.Cursory.EditorTools
         /// <summary>The empty world's backdrop, Cursory's dark room colour.</summary>
         static readonly Color Backdrop = new Color(0.07f, 0.08f, 0.10f, 1f);
 
-        /// <summary>Batch entry point: pipeline, project settings and scene, each only if missing.</summary>
+        /// <summary>The library front end's settings for Cursory (UC-T12): the menus' title.</summary>
+        public const string FrontEndSettingsPath = SettingsFolder + "/FrontEndSettings.asset";
+
+        /// <summary>Batch entry point: pipeline, project settings, scene and front end, each only if missing.</summary>
         public static void SetUpAll()
         {
             SetUpRendering();
             SetUpProjectSettings();
             if (!File.Exists(ScenePath)) RebuildMainScene();
+            SetUpServerScene();
+            SetUpFrontEnd();
+        }
+
+        /// <summary>
+        /// Gives <see cref="ScenePath"/> the library's drop-in front end exactly as a new game gets it (UC-T12): MindAttic ▸
+        /// Multiplayer ▸ Add Front End (<see cref="NetFrontEndSetup"/>) adds a NetFrontEnd beside the NetBootstrap, and
+        /// its Settings field gets <see cref="FrontEndSettingsPath"/> (title "Cursory"; every other field the library's
+        /// default). Rerunning changes nothing.
+        /// </summary>
+        [MenuItem("Unity.Cursory/Set Up Front End")]
+        public static void SetUpFrontEnd()
+        {
+            var settings = AssetDatabase.LoadAssetAtPath<NetFrontEndSettings>(FrontEndSettingsPath);
+            if (settings == null)
+            {
+                Directory.CreateDirectory(SettingsFolder);
+                settings = ScriptableObject.CreateInstance<NetFrontEndSettings>();
+                settings.title = "Cursory";
+                AssetDatabase.CreateAsset(settings, FrontEndSettingsPath);
+                AssetDatabase.SaveAssets();
+            }
+
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            settings = AssetDatabase.LoadAssetAtPath<NetFrontEndSettings>(FrontEndSettingsPath);   // opening the scene unloaded it
+            NetFrontEndSetupResult result = NetFrontEndSetup.Run(scene);
+            if (!result.Succeeded)
+            {
+                Debug.LogError("[Unity.Cursory] " + result.Message);
+                return;
+            }
+
+            bool changed = result.Changes.Count > 0;
+            var frontEnd = new SerializedObject(result.FrontEnd);
+            SerializedProperty field = frontEnd.FindProperty("settings");
+            if (field.objectReferenceValue != settings)
+            {
+                field.objectReferenceValue = settings;
+                frontEnd.ApplyModifiedPropertiesWithoutUndo();
+                changed = true;
+            }
+
+            if (changed)
+            {
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+                AssetDatabase.SaveAssets();
+            }
+
+            Debug.Log("[Unity.Cursory] Front end " + (changed ? "set up: " + string.Join(" ", result.Changes) : "already set up."));
         }
 
         /// <summary>A URP asset whose only renderer is the 2D renderer, made the default for every quality level.</summary>

@@ -7,6 +7,8 @@
         "Unity.Multiplayer",
         "Unity.Multiplayer.Core",
         "Unity.Multiplayer.Testing",
+        "Unity.Multiplayer.UI",
+        "Unity.Multiplayer.UI.Testing",
         "Unity.Netcode.Runtime",
         "Unity.Netcode.Runtime.Tests",
         "Unity.Networking.Transport",

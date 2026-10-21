@@ -1,8 +1,10 @@
 # Unity.Cursory
 Cursory, the co-op physics puzzle, rebuilt in Unity 6 with dedicated-server and host multiplayer.
 
-Open the project in Unity 6000.4.3f1. It expects MindAttic.Unity.Multiplayer and MindAttic.Capture checked
-out next to it (`Packages/manifest.json` references them by `file:../../` path). The game rules that don't
+Open the project in Unity 6000.4.3f1. It expects Unity.Multiplayer, MindAttic.Components, Unity.Shared and
+MindAttic.Capture checked out next to it (`Packages/manifest.json` references them by `file:../../` path). Press Play
+on `Main.unity`: the library's drop-in front end gives the main menu (Host, Join by IP, Join by code, Settings, Quit),
+the lobby with its join code, and the Esc in-game menu; your name and colour come from your MindAttic profile. The game rules that don't
 need the engine are tested without Unity: `dotnet test Tests/Core.Tests`.
 The server's Physics2D sim has a PlayMode suite, `Unity.Cursory.PlayMode.Tests`: run it from the editor's Test
 Runner, or `Unity -batchmode -nographics -projectPath . -runTests -testPlatform PlayMode -assemblyNames Unity.Cursory.PlayMode.Tests`.

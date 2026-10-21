@@ -56,6 +56,7 @@ Tests/Core.Tests              dotnet NUnit (net10.0) over Unity.Cursory.Core, no
 Packages/manifest.json        file:../../MindAttic.Unity.Multiplayer/unity/com.mindattic.unity.multiplayer
                               file:../../MindAttic.Capture/unity/com.mindattic.capture
                               file:../../MindAttic.Components/unity/com.mindattic.components.unity (every menu and HUD widget)
+                              file:../../Unity.Shared/unity/com.mindattic.unity.shared (the player's profile: name, colour)
 ```
 
 - **Rendering:** URP with only the 2D renderer (`Assets/Unity.Cursory/Settings`), a global 2D light, and a
@@ -224,7 +225,7 @@ interface so a compact snapshot can replace them without touching gameplay code.
 
 - ✅ **Tethers and per-player settings** (UC-T8): each player's own `[Synced]` `SegmentedTether` and
   `CursorCollision` on their `CursorAvatar` (both off by default), set by the owner through the `[ToServer]`
-  `SetSegmentedTether(bool)` / `SetCursorCollision(bool)` (UC-T11's pause menu calls these), replacing Cursory's
+  `SetSegmentedTether(bool)` / `SetCursorCollision(bool)` (the in-game menu's switches call these), replacing Cursory's
   room-wide booleans that every player's toggle overwrote. The server honours each cursor's own choice: with
   collision, a `Move` is pushed out of walls and shapes by the 10 px cursor disc (`Core/Physics/CursorCollision`,
   blocks stay non-solid as in Cursory); with a segmented tether, the rope catches on body corners
@@ -252,15 +253,33 @@ interface so a compact snapshot can replace them without touching gameplay code.
   (`com.mindattic.components.unity`): `CursoryHud` is a `MaToolbar` (level `MaSelect` that proposes a level vote,
   Reset, a connection `MaTag`, a pause button), the vote overlay and level banner are `MaPanel`s of `MaText` and
   `MaButton`s, and vote endings and wins are `MaToast`s; the minimap (`Core/Presentation/MinimapTransform`) sits in a
-  `MaPanel`; `CursoryPauseMenu` is a `MenuStack` with `ConfigureAsPauseMenu` (Esc), whose per-player switches are
-  `PlayerSettingsItems`, addable to any `MenuScreen` so UC-T12 can plug them into the library's front end. Player
+  `MaPanel`; the per-player switches are `PlayerSettingsItems`, addable to any `MenuScreen` (UC-T12 puts them on the
+  library front end's in-game menu). Player
   colours: the server copies each seat's display name and colour (from the connection approval payload) onto the
   cursor as `[Synced]` `SeatIndex`/`ChosenColor`/`DisplayName`; `CursorAvatar.PlayerColor` falls back to a
   seat-based `PlayerPalette` when the player kept the library's default white, and the rope, arrow, minimap dot and
   ripple all use it. Verified by `dotnet test Tests/Core.Tests` (`PointerGestureTests`, `CameraViewTests`,
   `MinimapTransformTests`, `BodyPickerTests`, `HudTextTests`, `PlayerPaletteTests`) and the PlayMode
   `PresentationTests` on a real Host (click vs drag vs grab, the zoom clamp, the HUD following and voting through the
-  board and level state, the pause switches reaching the server, the payload's colour and name).
+  board and level state, the payload's colour and name).
+
+- ✅ **Front end** (UC-T12): Cursory adopts the library's drop-in `NetFrontEnd` exactly as a new game does (Unity.Multiplayer
+  `docs/articles/front-end.md`), with no menu code of its own. `Main.unity` has it beside the `NetBootstrap` (MindAttic ▸
+  Multiplayer ▸ Add Front End, scripted as `ProjectSetup.SetUpFrontEnd` / menu `Unity.Cursory/Set Up Front End`) with
+  `Settings/FrontEndSettings.asset` (title "Cursory", every other field the library default). It gives the main menu
+  (Host, Join by IP, Join by code, Settings, Quit), the host's lobby with its join code and roster, the connecting
+  dialog, a plain-words dialog for every disconnect reason, the automatic reconnect to the same seat, and the Esc
+  in-game menu. The player's name and colour come from the MindAttic profile (`com.mindattic.unity.shared`, the
+  library's `ProfileIdentitySource`) into the approval payload, which UC-T11 already copies onto the cursor, rope,
+  whistle and minimap. Cursory adds only: `CursoryClient` hands its `PlayerSettingsItems` to `AddPauseMenuItems`, the
+  HUD's pause button opens the front end's in-game menu, the HUD (toolbar, vote overlay, banner, minimap) shows only
+  while the front end is `InGame`, and the world ignores the pointer while any of its menus is up. Cursory's own
+  `CursoryPauseMenu` is gone. A headless process (dedicated server, CI) builds no menus (the library's
+  `NetLaunch.ShowsMenus`), and a `-bot` switches the front end off with the bootstrap. Verified by the PlayMode
+  `FrontEndTests` (host from the menu and a client joining by the lobby's code into level 1, HUD hidden in the menus
+  and shown in game, the in-game menu's switches reaching the server, a version refusal and the host ending the game
+  each explained, the scene's wiring) on the library's test kits (`Unity.Multiplayer.Testing`,
+  `Unity.Multiplayer.UI.Testing`), with `BotEndToEndTests` unchanged.
 
 ## 7. Active frontier {#UC-§7}
 The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
