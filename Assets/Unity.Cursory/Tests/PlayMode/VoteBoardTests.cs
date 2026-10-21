@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
+using Unity.Multiplayer.Testing;
 using Unity.Netcode;
 using Unity.Netcode.TestHelpers.Runtime;
 using UnityEngine;
@@ -17,10 +18,8 @@ namespace Unity.Cursory.Tests
     /// through <see cref="NetSession"/>, one server-owned <see cref="VoteBoard"/> served with the real level list.
     /// A passing vote resets or loads the level on the server; every peer sees the vote's state and end; a whistle reaches every peer with the whistler's tone and colour.
     /// </summary>
-    public class VoteBoardTests : NetcodeIntegrationTest
+    public class VoteBoardTests : NetSessionTest
     {
-        private ushort _port;
-
         private NetSession _host;
         private NetSession _a;
         private NetSession _b;
@@ -39,37 +38,22 @@ namespace Unity.Cursory.Tests
         private static readonly PlayerColor AnnColor = new PlayerColor(0xE2, 0x4B, 0x4A);
         private static readonly PlayerColor BobColor = new PlayerColor(0x1D, 0x9E, 0x75);
 
-        public VoteBoardTests() : base(HostOrServer.Host)
+        public VoteBoardTests() : base(Topology.Host, clients: 2)
         {
         }
 
-        protected override int NumberOfClients => 2;
+        protected override string GameVersion => "uc-t10";
 
-        protected override bool CanStartServerAndClients() => false;
-
-        protected override void OnServerAndClientsCreated()
+        protected override void OnSessionsCreated()
         {
-            _port = TestPorts.FreeUdpPort();
-            foreach (var manager in m_NetworkManagers) manager.NetworkConfig.EnableSceneManagement = false;
-            var hash = new ProtocolHash(0xC10);
-            _host = NewSession(m_ServerNetworkManager);
-            _host.ProtocolHash = hash;
+            _host = Server;
+            _a = Clients[0];
+            _b = Clients[1];
+            _host.ProtocolHash = _a.ProtocolHash = _b.ProtocolHash = new ProtocolHash(0xC10);
             _host.Identity = new PlayerIdentity("host-token", "Host", PlayerColor.White);
-            _a = NewSession(m_ClientNetworkManagers[0]);
-            _a.ProtocolHash = hash;
             _a.Identity = new PlayerIdentity("ann-token", "Ann", AnnColor);
-            _b = NewSession(m_ClientNetworkManagers[1]);
-            _b.ProtocolHash = hash;
             _b.Identity = new PlayerIdentity("bob-token", "Bob", BobColor);
-
-            _prefab = new GameObject("VoteBoard");
-            NetcodeIntegrationTestHelpers.MakeNetworkObjectTestPrefab(_prefab.AddComponent<NetworkObject>());
-            _prefab.AddComponent<VoteBoard>();
-            Assert.That(_host.Prefabs.Register(_prefab), Is.True);
-            Assert.That(_a.Prefabs.Register(_prefab), Is.True);
-            Assert.That(_b.Prefabs.Register(_prefab), Is.True);
-
-            base.OnServerAndClientsCreated();
+            _prefab = CreatePrefab<VoteBoard>();
         }
 
         protected override IEnumerator OnSetup()
@@ -79,27 +63,10 @@ namespace Unity.Cursory.Tests
             yield return null;
         }
 
-        protected override IEnumerator OnTearDown()
+        protected override IEnumerator OnSessionsTearDown()
         {
-            _a?.Dispose();
-            _b?.Dispose();
-            _host?.Dispose();
             _a = _b = _host = null;
             yield return null;
-        }
-
-        /// <summary>A <see cref="NetSession"/> over one of the harness's NetworkManagers (games get theirs from NetBootstrap; the constructor is internal to the library).</summary>
-        private static NetSession NewSession(NetworkManager manager) =>
-            (NetSession)System.Activator.CreateInstance(typeof(NetSession),
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, new object[] { manager }, null);
-
-        private NetConfig Config() => new NetConfig { Port = _port, GameVersion = "uc-t10" };
-
-        private IEnumerator Join(NetSession client)
-        {
-            Assert.That(client.JoinByAddress(NetConfig.LoopbackAddress, _port, Config()), Is.True, "JoinByAddress");
-            yield return WaitForConditionOrTimeOut(() => client.State == SessionState.Connected);
-            AssertOnTimeout("the client never connected (" + client.State + ", " + client.LastDisconnect + ")");
         }
 
         /// <summary>
@@ -107,21 +74,15 @@ namespace Unity.Cursory.Tests
         /// </summary>
         private IEnumerator StartBoard(bool manualClock = false)
         {
-            Assert.That(_host.StartHost(Config()), Is.True, "StartHost");
-            yield return WaitForConditionOrTimeOut(() => _host.State == SessionState.Running);
-            AssertOnTimeout("the host never reached Running");
-            yield return Join(_a);
-            yield return Join(_b);
-            yield return WaitForConditionOrTimeOut(() => _host.ConnectedClientIds.Count == 3);
-            AssertOnTimeout("the host never saw three players");
+            yield return StartAndJoinAll();
 
-            var spawned = SpawnObject(_prefab, m_ServerNetworkManager);
-            _onHost = spawned.GetComponent<VoteBoard>();
-            ulong id = _onHost.NetworkObjectId;
-            yield return WaitForConditionOrTimeOut(() => SeenBy(m_ClientNetworkManagers[0], id) && SeenBy(m_ClientNetworkManagers[1], id));
-            AssertOnTimeout("the clients never saw the board");
-            _onA = Copy(m_ClientNetworkManagers[0], id);
-            _onB = Copy(m_ClientNetworkManagers[1], id);
+            _onHost = Spawn<VoteBoard>(_prefab);
+            Awaiting<VoteBoard> onA = WaitForCopy(_a, _onHost);
+            Awaiting<VoteBoard> onB = WaitForCopy(_b, _onHost);
+            yield return onA;
+            yield return onB;
+            _onA = onA.Result;
+            _onB = onB.Result;
 
             foreach (var board in new[] { _onHost, _onA, _onB })
             {
@@ -137,18 +98,11 @@ namespace Unity.Cursory.Tests
             _onHost.Serve(_loader, _clock);
         }
 
-        private static bool SeenBy(NetworkManager manager, ulong id) =>
-            manager.SpawnManager != null && manager.SpawnManager.SpawnedObjects.ContainsKey(id);
-
-        private static VoteBoard Copy(NetworkManager manager, ulong id) =>
-            manager.SpawnManager.SpawnedObjects[id].GetComponent<VoteBoard>();
-
         private IEnumerable<VoteBoard> All => new[] { _onHost, _onA, _onB };
 
         private IEnumerator WaitEverywhere(System.Func<VoteBoard, bool> condition, string what)
         {
-            yield return WaitForConditionOrTimeOut(() => All.All(condition));
-            AssertOnTimeout(what + " (host " + _onHost.Status + ", Ann " + _onA.Status + ", Bob " + _onB.Status + ")");
+            yield return WaitUntil(() => All.All(condition), () => what + " (host " + _onHost.Status + ", Ann " + _onA.Status + ", Bob " + _onB.Status + ")");
         }
 
         private static IEnumerator Settle()
@@ -228,13 +182,11 @@ namespace Unity.Cursory.Tests
             yield return WaitEverywhere(b => b.Status != null && b.Status.Quorum == 2, "the vote, quorum 2 of 3");
 
             _b.Leave();
-            yield return WaitForConditionOrTimeOut(() => _onHost.Status != null && _onHost.Status.Voters == 2 && _onA.Status != null && _onA.Status.Voters == 2);
-            AssertOnTimeout("Bob's departure never reached the vote (host " + _onHost.Status + ", Ann " + _onA.Status + ")");
+            yield return WaitUntil(() => _onHost.Status != null && _onHost.Status.Voters == 2 && _onA.Status != null && _onA.Status.Voters == 2, () => "Bob's departure never reached the vote (host " + _onHost.Status + ", Ann " + _onA.Status + ")");
             Assert.That(_onA.Status.Quorum, Is.EqualTo(2), "ceil(2/3 x 2)");
 
             _onHost.CastVote(true);
-            yield return WaitForConditionOrTimeOut(() => _ended[_onHost].Count == 1 && _ended[_onA].Count == 1);
-            AssertOnTimeout("the vote never passed");
+            yield return WaitUntil(() => _ended[_onHost].Count == 1 && _ended[_onA].Count == 1, "the vote never passed");
             Assert.That(_ended[_onA][0].Ending, Is.EqualTo(VoteEnding.Passed));
         }
 

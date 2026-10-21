@@ -4,6 +4,7 @@ using System.Linq;
 using NUnit.Framework;
 using Unity.Cursory.Core;
 using Unity.Multiplayer.Core;
+using Unity.Multiplayer.Testing;
 using Unity.Netcode;
 using Unity.Netcode.TestHelpers.Runtime;
 using UnityEngine;
@@ -134,7 +135,7 @@ namespace Unity.Cursory.Tests
         protected override void OnServerAndClientsCreated()
         {
             foreach (NetworkManager manager in m_NetworkManagers) manager.NetworkConfig.EnableSceneManagement = false;
-            _port = TestPorts.UseFreePort(m_NetworkManagers);   // not the harness's fixed 7789 (UC-T21)
+            _port = FreePort.Assign(m_NetworkManagers);   // not the harness's fixed 7789 (UC-T21)
             _prefab = CreateNetworkObjectPrefab("LevelStateSync");
             _prefab.AddComponent<LevelStateSync>();
             base.OnServerAndClientsCreated();
@@ -142,7 +143,7 @@ namespace Unity.Cursory.Tests
 
         protected override void OnNewClientCreated(NetworkManager networkManager)
         {
-            TestPorts.UsePort(networkManager, _port);   // a late joiner dials the same free port
+            FreePort.Assign(networkManager, _port);   // a late joiner dials the same free port
             base.OnNewClientCreated(networkManager);
         }
 

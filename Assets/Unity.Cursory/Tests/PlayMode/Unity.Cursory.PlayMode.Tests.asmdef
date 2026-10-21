@@ -6,6 +6,7 @@
         "Unity.Cursory.Runtime",
         "Unity.Multiplayer",
         "Unity.Multiplayer.Core",
+        "Unity.Multiplayer.Testing",
         "Unity.Netcode.Runtime",
         "Unity.Netcode.Runtime.Tests",
         "Unity.Networking.Transport",

@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
+using Unity.Multiplayer.Testing;
 using Unity.Netcode.TestHelpers.Runtime;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -34,10 +35,10 @@ namespace Unity.Cursory.Tests
 
         protected override void OnServerAndClientsCreated()
         {
-            _port = TestPorts.FreeUdpPort();
+            _port = FreePort.Udp();
             base.OnServerAndClientsCreated();
-            _host = NewSession(m_ServerNetworkManager);
-            _client = NewSession(m_ClientNetworkManagers[0]);
+            _host = TestSessions.Create(m_ServerNetworkManager);
+            _client = TestSessions.Create(m_ClientNetworkManagers[0]);
             PreparePeer(_host, m_ServerNetworkManager);
             PreparePeer(_client, m_ClientNetworkManagers[0]);
         }

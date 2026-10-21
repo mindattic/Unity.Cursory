@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
+using Unity.Multiplayer.Testing;
 using Unity.Netcode;
 using Unity.Netcode.TestHelpers.Runtime;
 using UnityEngine;
@@ -94,21 +95,6 @@ namespace Unity.Cursory.Tests
             yield return null;
         }
 
-        /// <summary>
-        /// A <see cref="NetSession"/> over one of the integration test's own NetworkManagers. Games get theirs from
-        /// <see cref="NetBootstrap"/>; its constructor is internal to the library, and a NetBootstrap here would
-        /// serve by itself in a headless editor, so a test reaches the constructor directly.
-        /// </summary>
-        protected static NetSession NewSession(NetworkManager manager)
-        {
-            return (NetSession)System.Activator.CreateInstance(
-                typeof(NetSession),
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
-                null,
-                new object[] { manager },
-                null);
-        }
-
         /// <summary>Sets up <paramref name="manager"/>'s copy of <paramref name="session"/> to spawn and register the two UC-T7 prefabs. Every peer, before it starts.</summary>
         protected void PreparePeer(NetSession session, NetworkManager manager)
         {
@@ -185,10 +171,10 @@ namespace Unity.Cursory.Tests
 
         protected override void OnServerAndClientsCreated()
         {
-            _port = TestPorts.FreeUdpPort();
+            _port = FreePort.Udp();
             base.OnServerAndClientsCreated();
-            _host = NewSession(m_ServerNetworkManager);
-            _client = NewSession(m_ClientNetworkManagers[0]);
+            _host = TestSessions.Create(m_ServerNetworkManager);
+            _client = TestSessions.Create(m_ClientNetworkManagers[0]);
             PreparePeer(_host, m_ServerNetworkManager);
             PreparePeer(_client, m_ClientNetworkManagers[0]);
         }
@@ -359,11 +345,11 @@ namespace Unity.Cursory.Tests
 
         protected override void OnServerAndClientsCreated()
         {
-            _port = TestPorts.FreeUdpPort();
+            _port = FreePort.Udp();
             base.OnServerAndClientsCreated();
-            _server = NewSession(m_ServerNetworkManager);
-            _a = NewSession(m_ClientNetworkManagers[0]);
-            _b = NewSession(m_ClientNetworkManagers[1]);
+            _server = TestSessions.Create(m_ServerNetworkManager);
+            _a = TestSessions.Create(m_ClientNetworkManagers[0]);
+            _b = TestSessions.Create(m_ClientNetworkManagers[1]);
             PreparePeer(_server, m_ServerNetworkManager);
             PreparePeer(_a, m_ClientNetworkManagers[0]);
             PreparePeer(_b, m_ClientNetworkManagers[1]);

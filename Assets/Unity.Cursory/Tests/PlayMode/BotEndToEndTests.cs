@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
+using Unity.Multiplayer.Testing;
 using Unity.Netcode;
 using Unity.Netcode.TestHelpers.Runtime;
 using UnityEngine;
@@ -44,7 +45,7 @@ namespace Unity.Cursory.Tests
         {
             foreach (NetworkManager manager in m_NetworkManagers) manager.NetworkConfig.EnableSceneManagement = false;
             _rendezvous = new InProcessRendezvousServer();
-            _port = TestPorts.FreeUdpPort();
+            _port = FreePort.Udp();
             _codeFile = Path.Combine(Application.temporaryCachePath, "uc-t14-join-code-" + System.Guid.NewGuid().ToString("N") + ".txt");
 
             // The server is wired as Main.unity wires it: NetBootstrap + LevelServer on the NetworkManager's object.
@@ -82,29 +83,24 @@ namespace Unity.Cursory.Tests
 
         private static NetSession PrepareClient(NetworkManager manager)
         {
-            // NetSession's constructor is internal to the library; a game gets one from NetBootstrap (see CursorAvatarTests).
-            var session = (NetSession)System.Activator.CreateInstance(typeof(NetSession), BindingFlags.Instance | BindingFlags.NonPublic,
-                null, new object[] { manager }, null);
+            NetSession session = TestSessions.Create(manager);
             NetPrefabs.RegisterAll(session);
             manager.NetworkConfig.PlayerPrefab = NetPrefabs.LoadCursorAvatar();
             return session;
         }
 
-        private NetConfig ServerConfig() => new NetConfig
+        private NetConfig ServerConfig() => _rendezvous.ForServer(new NetConfig
         {
             Topology = Topology.Server,
             Port = _port,
             GameVersion = "uc-t14",
-            RendezvousUrl = _rendezvous.Url,
-            RendezvousSecret = InProcessRendezvousServer.Secret,
-        };
+        });
 
-        private NetConfig ClientConfig() => new NetConfig
+        private NetConfig ClientConfig() => _rendezvous.ForClient(new NetConfig
         {
             GameVersion = "uc-t14",
-            RendezvousUrl = _rendezvous.Url,
             JoinCodes = JoinCodeProvider.Rendezvous,
-        };
+        });
 
         [UnityTest]
         [Timeout(240000)]

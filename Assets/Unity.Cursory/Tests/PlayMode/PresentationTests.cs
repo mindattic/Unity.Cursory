@@ -6,6 +6,7 @@ using NUnit.Framework;
 using Unity.Cursory.Core;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
+using Unity.Multiplayer.Testing;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -72,7 +73,7 @@ namespace Unity.Cursory.Tests
             _session.Identity = new PlayerIdentity("ann-token", "Ann", AnnColor);
             yield return null;           // LevelServer.Start registers the prefabs and the player prefab
 
-            Assert.That(_session.Start(new NetConfig { Topology = Topology.Host, Port = TestPorts.FreeUdpPort(), GameVersion = "uc-t11" }), Is.True, "StartHost");
+            Assert.That(_session.Start(new NetConfig { Topology = Topology.Host, Port = FreePort.Udp(), GameVersion = "uc-t11" }), Is.True, "StartHost");
             yield return WaitFor(() => _server.IsServing && CursorAvatar.Local(_session) != null, "the host never served level 1 with Ann's cursor");
 
             _cameraGo = new GameObject("UC-T11 camera");

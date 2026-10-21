@@ -2,6 +2,7 @@ using System.Collections;
 using NUnit.Framework;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
+using Unity.Multiplayer.Testing;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -52,7 +53,7 @@ namespace Unity.Cursory.Tests
             bootstrap.Configure(c =>
             {
                 c.Topology = Topology.Server;
-                c.Port = TestPorts.FreeUdpPort();
+                c.Port = FreePort.Udp();
                 c.GameVersion = "uc-t13";
             });
             _netGo.SetActive(true);
