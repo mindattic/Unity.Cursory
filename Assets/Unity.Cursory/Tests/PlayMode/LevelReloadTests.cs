@@ -18,7 +18,7 @@ namespace Unity.Cursory.Tests
     /// </summary>
     public class LevelReloadTests : CursorAvatarTestBase
     {
-        private const ushort Port = 47994;
+        private ushort _port;
         private const string SecondBlockId = "b2";
 
         private NetSession _host;
@@ -34,6 +34,7 @@ namespace Unity.Cursory.Tests
 
         protected override void OnServerAndClientsCreated()
         {
+            _port = TestPorts.FreeUdpPort();
             base.OnServerAndClientsCreated();
             _host = NewSession(m_ServerNetworkManager);
             _client = NewSession(m_ClientNetworkManagers[0]);
@@ -49,7 +50,7 @@ namespace Unity.Cursory.Tests
             yield return base.OnTearDown();
         }
 
-        private static NetConfig Config() => new NetConfig { Port = Port, GameVersion = "uc-t20" };
+        private NetConfig Config() => new NetConfig { Port = _port, GameVersion = "uc-t20" };
 
         /// <summary>Level 2: a different block, the same shape, and a second wall.</summary>
         private static LevelData SecondLevel()
@@ -72,7 +73,7 @@ namespace Unity.Cursory.Tests
             BindWorld(_host);
             Sim.Loader = new LevelLoader(new[] { OneLevel(), SecondLevel() });
 
-            Assert.That(_client.JoinByAddress(NetConfig.LoopbackAddress, Port, Config()), Is.True);
+            Assert.That(_client.JoinByAddress(NetConfig.LoopbackAddress, _port, Config()), Is.True);
             yield return WaitForConditionOrTimeOut(() => _client.State == SessionState.Connected);
             AssertOnTimeout("the client never connected");
 

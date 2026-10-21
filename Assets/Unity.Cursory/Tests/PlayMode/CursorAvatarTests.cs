@@ -170,7 +170,7 @@ namespace Unity.Cursory.Tests
     /// <summary>Host + one client (NumberOfClients = 1): one cursor each, owned, moving, grabbing and replicating a networked body.</summary>
     public class CursorAvatarHostAndClientTests : CursorAvatarTestBase
     {
-        private const ushort Port = 47871;
+        private ushort _port;
 
         private NetSession _host;
         private NetSession _client;
@@ -185,6 +185,7 @@ namespace Unity.Cursory.Tests
 
         protected override void OnServerAndClientsCreated()
         {
+            _port = TestPorts.FreeUdpPort();
             base.OnServerAndClientsCreated();
             _host = NewSession(m_ServerNetworkManager);
             _client = NewSession(m_ClientNetworkManagers[0]);
@@ -200,7 +201,7 @@ namespace Unity.Cursory.Tests
             yield return base.OnTearDown();
         }
 
-        private static NetConfig Config() => new NetConfig { Port = Port, GameVersion = "uc-t7" };
+        private NetConfig Config() => new NetConfig { Port = _port, GameVersion = "uc-t7" };
 
         private IEnumerator StartAndJoin()
         {
@@ -209,7 +210,7 @@ namespace Unity.Cursory.Tests
             AssertOnTimeout("the host never reached Running");
             BindWorld(_host);
 
-            Assert.That(_client.JoinByAddress(NetConfig.LoopbackAddress, Port, Config()), Is.True);
+            Assert.That(_client.JoinByAddress(NetConfig.LoopbackAddress, _port, Config()), Is.True);
             yield return WaitForConditionOrTimeOut(() => _client.State == SessionState.Connected);
             AssertOnTimeout("the client never connected");
         }
@@ -342,7 +343,7 @@ namespace Unity.Cursory.Tests
     /// <summary>Dedicated server + two clients (NumberOfClients = 2): two cursors, each owned by its own client, isolated from one another.</summary>
     public class CursorAvatarServerAndClientsTests : CursorAvatarTestBase
     {
-        private const ushort Port = 47872;
+        private ushort _port;
 
         private NetSession _server;
         private NetSession _a;
@@ -358,6 +359,7 @@ namespace Unity.Cursory.Tests
 
         protected override void OnServerAndClientsCreated()
         {
+            _port = TestPorts.FreeUdpPort();
             base.OnServerAndClientsCreated();
             _server = NewSession(m_ServerNetworkManager);
             _a = NewSession(m_ClientNetworkManagers[0]);
@@ -376,7 +378,7 @@ namespace Unity.Cursory.Tests
             yield return base.OnTearDown();
         }
 
-        private static NetConfig Config() => new NetConfig { Port = Port, GameVersion = "uc-t7" };
+        private NetConfig Config() => new NetConfig { Port = _port, GameVersion = "uc-t7" };
 
         private IEnumerator StartAndJoinBoth()
         {
@@ -385,8 +387,8 @@ namespace Unity.Cursory.Tests
             AssertOnTimeout("the server never reached Running");
             BindWorld(_server);
 
-            Assert.That(_a.JoinByAddress(NetConfig.LoopbackAddress, Port, Config()), Is.True);
-            Assert.That(_b.JoinByAddress(NetConfig.LoopbackAddress, Port, Config()), Is.True);
+            Assert.That(_a.JoinByAddress(NetConfig.LoopbackAddress, _port, Config()), Is.True);
+            Assert.That(_b.JoinByAddress(NetConfig.LoopbackAddress, _port, Config()), Is.True);
             yield return WaitForConditionOrTimeOut(() => _a.State == SessionState.Connected && _b.State == SessionState.Connected);
             AssertOnTimeout("both clients never connected");
         }

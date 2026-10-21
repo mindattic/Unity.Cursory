@@ -19,7 +19,7 @@ namespace Unity.Cursory.Tests
     /// </summary>
     public class VoteBoardTests : NetcodeIntegrationTest
     {
-        private const ushort Port = 47993;
+        private ushort _port;
 
         private NetSession _host;
         private NetSession _a;
@@ -49,6 +49,7 @@ namespace Unity.Cursory.Tests
 
         protected override void OnServerAndClientsCreated()
         {
+            _port = TestPorts.FreeUdpPort();
             foreach (var manager in m_NetworkManagers) manager.NetworkConfig.EnableSceneManagement = false;
             var hash = new ProtocolHash(0xC10);
             _host = NewSession(m_ServerNetworkManager);
@@ -92,11 +93,11 @@ namespace Unity.Cursory.Tests
             (NetSession)System.Activator.CreateInstance(typeof(NetSession),
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, new object[] { manager }, null);
 
-        private static NetConfig Config() => new NetConfig { Port = Port, GameVersion = "uc-t10" };
+        private NetConfig Config() => new NetConfig { Port = _port, GameVersion = "uc-t10" };
 
         private IEnumerator Join(NetSession client)
         {
-            Assert.That(client.JoinByAddress(NetConfig.LoopbackAddress, Port, Config()), Is.True, "JoinByAddress");
+            Assert.That(client.JoinByAddress(NetConfig.LoopbackAddress, _port, Config()), Is.True, "JoinByAddress");
             yield return WaitForConditionOrTimeOut(() => client.State == SessionState.Connected);
             AssertOnTimeout("the client never connected (" + client.State + ", " + client.LastDisconnect + ")");
         }

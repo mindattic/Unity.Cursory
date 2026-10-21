@@ -107,7 +107,7 @@ namespace Unity.Cursory.Tests
     /// </summary>
     public class TetherAvatarTests : CursorAvatarTestBase
     {
-        private const ushort Port = 47873;
+        private ushort _port;
 
         private NetSession _server;
         private NetSession _a;
@@ -136,6 +136,7 @@ namespace Unity.Cursory.Tests
 
         protected override void OnServerAndClientsCreated()
         {
+            _port = TestPorts.FreeUdpPort();
             base.OnServerAndClientsCreated();
             _server = NewSession(m_ServerNetworkManager);
             _a = NewSession(m_ClientNetworkManagers[0]);
@@ -154,7 +155,7 @@ namespace Unity.Cursory.Tests
             yield return base.OnTearDown();
         }
 
-        private static NetConfig Config() => new NetConfig { Port = Port, GameVersion = "uc-t8" };
+        private NetConfig Config() => new NetConfig { Port = _port, GameVersion = "uc-t8" };
 
         private IEnumerator StartAndJoinBoth()
         {
@@ -163,8 +164,8 @@ namespace Unity.Cursory.Tests
             AssertOnTimeout("the server never reached Running");
             BindWorld(_server);
 
-            Assert.That(_a.JoinByAddress(NetConfig.LoopbackAddress, Port, Config()), Is.True);
-            Assert.That(_b.JoinByAddress(NetConfig.LoopbackAddress, Port, Config()), Is.True);
+            Assert.That(_a.JoinByAddress(NetConfig.LoopbackAddress, _port, Config()), Is.True);
+            Assert.That(_b.JoinByAddress(NetConfig.LoopbackAddress, _port, Config()), Is.True);
             yield return WaitForConditionOrTimeOut(() => _a.State == SessionState.Connected && _b.State == SessionState.Connected);
             AssertOnTimeout("both clients never connected");
 

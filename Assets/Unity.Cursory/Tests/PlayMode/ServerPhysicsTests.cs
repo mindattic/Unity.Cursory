@@ -241,12 +241,12 @@ namespace Unity.Cursory.Tests
             var bootstrap = _netGo.AddComponent<NetBootstrap>();
             if (manager.NetworkConfig == null) manager.NetworkConfig = new NetworkConfig();
             manager.NetworkConfig.EnableSceneManagement = false;
-            // Its own port, so it never meets another test or a running game on the default one. Configured before
-            // the inactive object wakes, so the headless auto-start uses it too (UM-T33).
+            // A free port of its own, so it never meets another test, another run or a running game (UC-T21). Configured
+            // before the inactive object wakes, so the headless auto-start uses it too (UM-T33).
             bootstrap.Configure(c =>
             {
                 c.Topology = Topology.Server;
-                c.Port = 47961;
+                c.Port = TestPorts.FreeUdpPort();
                 c.GameVersion = "uc-t6";
             });
             _netGo.SetActive(true);

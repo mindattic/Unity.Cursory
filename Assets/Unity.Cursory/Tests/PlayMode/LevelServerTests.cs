@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Reflection;
 using NUnit.Framework;
 using Unity.Multiplayer;
 using Unity.Multiplayer.Core;
@@ -48,9 +47,14 @@ namespace Unity.Cursory.Tests
             var server = _netGo.AddComponent<LevelServer>();
             if (manager.NetworkConfig == null) manager.NetworkConfig = new NetworkConfig();
             manager.NetworkConfig.EnableSceneManagement = false;
-            typeof(NetBootstrap).GetField("port", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(bootstrap, 47962);
-            typeof(NetBootstrap).GetField("topology", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(bootstrap, Topology.Server);
-            typeof(NetBootstrap).GetField("gameVersion", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(bootstrap, "uc-t13");
+            // A free port of its own (UC-T21), configured before the inactive object wakes so the headless auto-start
+            // uses it too (UM-T33).
+            bootstrap.Configure(c =>
+            {
+                c.Topology = Topology.Server;
+                c.Port = TestPorts.FreeUdpPort();
+                c.GameVersion = "uc-t13";
+            });
             _netGo.SetActive(true);
 
             var session = bootstrap.Session;
