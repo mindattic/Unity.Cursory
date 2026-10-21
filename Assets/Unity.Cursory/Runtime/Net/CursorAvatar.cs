@@ -191,6 +191,7 @@ namespace Unity.Cursory
                 s_BySession[session] = avatars;
             }
 
+            if (IsServer) AssignIdentity();   // UC-T11: the seat's name and colour, for every peer to draw
             avatars.Add(this);
             Spawned?.Invoke(this);
 

@@ -322,7 +322,8 @@ namespace Unity.Cursory.Tests
             TetherRenderer seenByB = aOnB.GetComponent<TetherRenderer>();
             Assert.That(onA, Is.Not.Null, "A draws its own rope");
             Assert.That(seenByB, Is.Not.Null, "and B draws A's");
-            Assert.That(onA.Color, Is.EqualTo(TetherRenderer.DefaultColorFor(_a.LocalClientId)));
+            yield return null;   // LateUpdate picks up the synced player colour
+            Assert.That(onA.Color, Is.EqualTo(_onA.PlayerColor), "UC-T11: the player's colour (their own, or their seat's fallback)");
             Assert.That(seenByB.Color, Is.EqualTo(onA.Color), "every peer draws A's rope in A's colour");
             onA.Redraw();
             Assert.That(onA.Line.enabled, Is.False, "no rope while A holds nothing");

@@ -55,6 +55,7 @@ Assets/Unity.Cursory/Editor    Unity.Cursory.Editor   ProjectSetup: writes the U
 Tests/Core.Tests              dotnet NUnit (net10.0) over Unity.Cursory.Core, no editor needed
 Packages/manifest.json        file:../../MindAttic.Unity.Multiplayer/unity/com.mindattic.unity.multiplayer
                               file:../../MindAttic.Capture/unity/com.mindattic.capture
+                              file:../../MindAttic.Components/unity/com.mindattic.components.unity (every menu and HUD widget)
 ```
 
 - **Rendering:** URP with only the 2D renderer (`Assets/Unity.Cursory/Settings`), a global 2D light, and a
@@ -62,8 +63,8 @@ Packages/manifest.json        file:../../MindAttic.Unity.Multiplayer/unity/com.m
   world pixel per screen pixel).
 - **Physics:** Physics2D, gravity 0 (top-down). From UC-T6 the server steps it in Script mode at
   1/30 s from the network tick; clients never simulate.
-- **Packages** resolve from the sibling checkouts, so the repo must sit next to MindAttic.Unity.Multiplayer
-  and MindAttic.Capture (as it does under `D:\Projects\MindAttic`).
+- **Packages** resolve from the sibling checkouts, so the repo must sit next to MindAttic.Unity.Multiplayer,
+  MindAttic.Capture and MindAttic.Components (as it does under `D:\Projects\MindAttic`).
 
 ## 5. The Laws {#UC-§5}
 
@@ -236,6 +237,30 @@ interface so a compact snapshot can replace them without touching gameplay code.
   bend flips. Verified by `dotnet test Tests/Core.Tests` (`TetherGeometryTests`, `TetherWrapTests`,
   `CursorCollisionTests`) and the PlayMode suites `TetherPhysicsTests` and `TetherAvatarTests` (dedicated server +
   two clients).
+
+- ✅ **Client presentation** (UC-T11): `Runtime/Presentation/CursoryClient` is everything a player sees and does,
+  bound to one `NetSession`; a player build creates it at scene load next to `NetBootstrap`, and a headless process
+  (`-batchmode`, a dedicated server build, `-bot`) creates none (`CursoryClient.ShouldPresent`). Input is the Input
+  System mouse, turned into intents only ([UC-LAW-1](#UC-LAW-1)) by `PointerInput`: a press on a wire end, shape,
+  block or wall (`Core/Presentation/BodyPicker`, Cursory's pick order, against the client's own copy of the level and
+  the replicated poses, matched by spawn order in `ClientBodies`) grabs it and the release lets go; a press on empty
+  space follows `Core/Presentation/PointerGesture` (5 px of travel pans the camera, a release within 250 ms whistles
+  through the `VoteBoard`); the wheel zooms about the pointer in 0.1 to 4 (`Core/Presentation/CameraView`, which
+  `TopDownCamera` now follows). `WorldView` draws goal pads (green when solved), walls, circuit, bodies with their
+  Mass, wires, every cursor as an arrow with a name tag, and whistle ripples; `WhistleAudio` plays each player's
+  `WhistleTone` as a synthesized clip. **All menus and HUD widgets come from MindAttic Components**
+  (`com.mindattic.components.unity`): `CursoryHud` is a `MaToolbar` (level `MaSelect` that proposes a level vote,
+  Reset, a connection `MaTag`, a pause button), the vote overlay and level banner are `MaPanel`s of `MaText` and
+  `MaButton`s, and vote endings and wins are `MaToast`s; the minimap (`Core/Presentation/MinimapTransform`) sits in a
+  `MaPanel`; `CursoryPauseMenu` is a `MenuStack` with `ConfigureAsPauseMenu` (Esc), whose per-player switches are
+  `PlayerSettingsItems`, addable to any `MenuScreen` so UC-T12 can plug them into the library's front end. Player
+  colours: the server copies each seat's display name and colour (from the connection approval payload) onto the
+  cursor as `[Synced]` `SeatIndex`/`ChosenColor`/`DisplayName`; `CursorAvatar.PlayerColor` falls back to a
+  seat-based `PlayerPalette` when the player kept the library's default white, and the rope, arrow, minimap dot and
+  ripple all use it. Verified by `dotnet test Tests/Core.Tests` (`PointerGestureTests`, `CameraViewTests`,
+  `MinimapTransformTests`, `BodyPickerTests`, `HudTextTests`, `PlayerPaletteTests`) and the PlayMode
+  `PresentationTests` on a real Host (click vs drag vs grab, the zoom clamp, the HUD following and voting through the
+  board and level state, the pause switches reaching the server, the payload's colour and name).
 
 ## 7. Active frontier {#UC-§7}
 The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in

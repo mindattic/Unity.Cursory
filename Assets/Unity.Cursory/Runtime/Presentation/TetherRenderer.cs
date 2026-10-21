@@ -12,23 +12,14 @@ namespace Unity.Cursory
     /// <remarks>
     /// Every cursor spawned on a peer that shows the game (a host or a client, never a dedicated server) gets one
     /// automatically through <see cref="CursorAvatar.Spawned"/>. It only reads replicated state; nothing here
-    /// touches the simulation. <see cref="Color"/> starts from a fixed palette by owner until the player's profile
-    /// colour arrives (UC-T11/UC-T12 set it).
+    /// touches the simulation. <see cref="Color"/> follows <see cref="CursorAvatar.PlayerColor"/> (UC-T11): the colour
+    /// the player connected with, or their seat's <see cref="PlayerPalette"/> fallback.
     /// </remarks>
     public sealed class TetherRenderer : MonoBehaviour
     {
         /// <summary>The rope's width on screen at zoom 1, in world pixels.</summary>
         public const float WidthPx = 3f;
 
-        private static readonly Color[] Palette =
-        {
-            new Color(0.95f, 0.36f, 0.30f), // red
-            new Color(0.25f, 0.62f, 0.95f), // blue
-            new Color(0.40f, 0.80f, 0.35f), // green
-            new Color(0.98f, 0.76f, 0.22f), // yellow
-            new Color(0.72f, 0.45f, 0.92f), // violet
-            new Color(0.25f, 0.82f, 0.80f), // teal
-        };
 
         private readonly List<Vector2> _rope = new List<Vector2>();
         private CursorAvatar _avatar;
@@ -58,8 +49,12 @@ namespace Unity.Cursory
             }
         }
 
-        /// <summary>The fallback colour for the cursor owned by <paramref name="ownerClientId"/> before a profile colour arrives.</summary>
-        public static Color DefaultColorFor(ulong ownerClientId) => Palette[(int)(ownerClientId % (ulong)Palette.Length)];
+        /// <summary>The fallback colour for seat <paramref name="seat"/> when its player kept the default colour (<see cref="PlayerPalette"/>).</summary>
+        public static Color DefaultColorFor(ulong seat)
+        {
+            var (r, g, b) = PlayerPalette.ForSeat((long)(seat % int.MaxValue));
+            return new Color32(r, g, b, 255);
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Hook()
@@ -78,11 +73,12 @@ namespace Unity.Cursory
         {
             _avatar = GetComponent<CursorAvatar>();
             EnsureLine();
-            Color = _avatar != null ? DefaultColorFor(_avatar.OwnerClientId) : Palette[0];
+            Color = _avatar != null ? _avatar.PlayerColor : DefaultColorFor(0);
         }
 
         private void LateUpdate()
         {
+            if (_avatar != null && _avatar.IsSpawned && _avatar.PlayerColor != _color) Color = _avatar.PlayerColor;
             Redraw();
         }
 

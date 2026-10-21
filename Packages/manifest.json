@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "com.mindattic.capture": "file:../../MindAttic.Capture/unity/com.mindattic.capture",
+    "com.mindattic.components.unity": "file:../../MindAttic.Components/unity/com.mindattic.components.unity",
     "com.mindattic.unity.multiplayer": "file:../../Unity.Multiplayer/unity/com.mindattic.unity.multiplayer",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.ide.rider": "3.0.39",

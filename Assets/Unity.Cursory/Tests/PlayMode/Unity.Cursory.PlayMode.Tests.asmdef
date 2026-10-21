@@ -9,6 +9,8 @@
         "Unity.Netcode.Runtime",
         "Unity.Netcode.Runtime.Tests",
         "Unity.Networking.Transport",
+        "MindAttic.Components.Unity",
+        "MindAttic.Components.Unity.Core",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
