@@ -286,11 +286,18 @@ interface so a compact snapshot can replace them without touching gameplay code.
   HUD's pause button opens the front end's in-game menu, the HUD (toolbar, vote overlay, banner, minimap) shows only
   while the front end is `InGame`, and the world ignores the pointer while any of its menus is up. Cursory's own
   `CursoryPauseMenu` is gone. A headless process (dedicated server, CI) builds no menus (the library's
-  `NetLaunch.ShowsMenus`), and a `-bot` switches the front end off with the bootstrap. Verified by the PlayMode
+  `NetLaunch.ShowsMenus`), and neither does a `-bot` (the same rule, since UM-T57). Verified by the PlayMode
   `FrontEndTests` (host from the menu and a client joining by the lobby's code into level 1, HUD hidden in the menus
   and shown in game, the in-game menu's switches reaching the server, a version refusal and the host ending the game
   each explained, the scene's wiring) on the library's test kits (`Unity.Multiplayer.Testing`,
   `Unity.Multiplayer.UI.Testing`), with `BotEndToEndTests` unchanged.
+- ✅ **End-to-end bots** (UC-T14; on the library's bot mode since UM-T57): two headless bots, A and B, join a dedicated
+  server on level 2 by code and drag its Mass 2.0 block around the wall onto the pad together. Cursory's only bot
+  code is the strategy: `Runtime/Bots/CursoryBot`, the game's `[NetBotDriver]`, plays Core `BotPlan` (`BotPlanTests`)
+  and passes on UC-T9's synced win. The library does the rest: `-bot`, joining by `-joincodefile`, the server writing
+  its code, `-scenario 2` (read by `LevelServer.StartLevel`), the verdict lines, `mp-host game smoke` with
+  `mp-host.json`'s `bots`/`scenario`, and the reusable nightly `game-smoke.yml`. Verified by the PlayMode
+  `BotEndToEndTests` on the library's `NetBotTest`, and by `mp-host game smoke` under Docker Compose.
 
 ## 7. Active frontier {#UC-§7}
 The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in

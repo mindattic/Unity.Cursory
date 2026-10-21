@@ -15,6 +15,7 @@ runs it, with no Cursory build code: Unity.Multiplayer's `mp-host game` does it 
 
 End-to-end: two headless bot clients join a dedicated server by code and solve level 2 together, in process
 (`BotEndToEndTests` in the PlayMode suite) and nightly under Docker Compose (`.github/workflows/nightly.yml`,
-locally `powershell -File tools/run-smoke.ps1`); see [docs/hosting.md](docs/hosting.md#end-to-end-test-bots).
+locally `mp-host game smoke`). Cursory's only bot code is its strategy, `CursoryBot`; the bot mode is
+Unity.Multiplayer's. See [docs/hosting.md](docs/hosting.md#end-to-end-test-bots).
 
 How the system fits together and the rules that keep it coherent: [docs/BIBLE.md](docs/BIBLE.md).

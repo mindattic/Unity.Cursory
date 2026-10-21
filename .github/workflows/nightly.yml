@@ -1,18 +1,18 @@
 # UC-T14: nightly end-to-end test. A dedicated server plays level 2 (Mass 2.0, needs two cursors) and two headless
-# bot clients join it by code through the rendezvous service and solve it together, all under Docker Compose
-# (smoke/docker-compose.yml), mirroring Unity.Multiplayer's .github/workflows/nightly-smoke.yml. Before that, the
-# PlayMode suite (including BotEndToEndTests, the same run in process) and the dotnet Core tests run.
+# bot clients join it by code through the rendezvous service and solve it together, under Docker Compose. Since
+# UM-T57 that job is Unity.Multiplayer's reusable game-smoke.yml (mp-host game smoke): bots A,B and scenario 2 come from
+# mp-host.json, the strategy from CursoryBot. The PlayMode suite (including BotEndToEndTests, the same run in process)
+# and the dotnet Core tests run beside it.
 #
 # Secrets:
 #   UNITY_LICENSE           - required, the same Unity license file GameCI uses in Unity.Multiplayer's ci.yml.
-#   MINDATTIC_REPOS_TOKEN   - a token that can read mindattic/Unity.Multiplayer and mindattic/MindAttic.Capture, if
-#                             those repos are private (Packages/manifest.json takes both from file:../../); the
-#                             workflow falls back to github.token.
-#   RENDEZVOUS_SMOKE_SECRET - optional; the compose stack defaults to a throwaway secret.
+#   MINDATTIC_REPOS_TOKEN   - a token that can read mindattic/Unity.Multiplayer, MindAttic.Capture, MindAttic.Components
+#                             and Unity.Shared, if those repos are private (Packages/manifest.json takes them from
+#                             file:../../); the workflow falls back to github.token.
 #
-# Packages/manifest.json resolves the two file: packages two levels above Packages/, so every repo is checked out
+# Packages/manifest.json resolves its file: packages two levels above Packages/, so every repo is checked out
 # side by side inside the workspace (GameCI's container mounts only the workspace) and the project sits in
-# Unity.Cursory/. Run it by hand with workflow_dispatch; tools/run-smoke.ps1 does the compose part locally.
+# Unity.Cursory/. Run it by hand with workflow_dispatch; `mp-host game smoke` does the compose part locally.
 name: Nightly end-to-end
 
 on:
@@ -48,6 +48,16 @@ jobs:
           repository: mindattic/MindAttic.Capture
           path: MindAttic.Capture
           token: ${{ secrets.MINDATTIC_REPOS_TOKEN || github.token }}
+      - uses: actions/checkout@v4
+        with:
+          repository: mindattic/MindAttic.Components
+          path: MindAttic.Components
+          token: ${{ secrets.MINDATTIC_REPOS_TOKEN || github.token }}
+      - uses: actions/checkout@v4
+        with:
+          repository: mindattic/Unity.Shared
+          path: Unity.Shared
+          token: ${{ secrets.MINDATTIC_REPOS_TOKEN || github.token }}
 
       - uses: actions/cache@v4
         with:
@@ -73,92 +83,9 @@ jobs:
           path: ${{ steps.tests.outputs.artifactsPath }}
           if-no-files-found: ignore
 
-  build-game:
-    name: Build the Linux player (server + bots)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: Unity.Cursory
-      - uses: actions/checkout@v4
-        with:
-          repository: mindattic/Unity.Multiplayer
-          path: Unity.Multiplayer
-          token: ${{ secrets.MINDATTIC_REPOS_TOKEN || github.token }}
-      - uses: actions/checkout@v4
-        with:
-          repository: mindattic/MindAttic.Capture
-          path: MindAttic.Capture
-          token: ${{ secrets.MINDATTIC_REPOS_TOKEN || github.token }}
-
-      - uses: actions/cache@v4
-        with:
-          path: Unity.Cursory/Library
-          key: Library-Cursory-build-${{ hashFiles('Unity.Cursory/Packages/**', 'Unity.Multiplayer/unity/**') }}
-          restore-keys: Library-Cursory-
-
-      # One StandaloneLinux64 player of Main.unity plays every role (BotBuild); a plain player rather than the
-      # Dedicated Server subtarget, because GameCI's editor image has no Linux Dedicated Server build support.
-      - uses: game-ci/unity-builder@v4
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-        with:
-          projectPath: Unity.Cursory
-          unityVersion: 6000.4.3f1
-          targetPlatform: StandaloneLinux64
-          buildMethod: Unity.Cursory.EditorTools.BotBuild.BuildFromCommandLine
-          customParameters: -botOutput /github/workspace/Unity.Cursory/smoke/build
-          allowDirtyBuild: true
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: smoke-build
-          path: Unity.Cursory/smoke/build
-          retention-days: 2
-          if-no-files-found: error
-
-  e2e:
+  smoke:
     name: Docker Compose e2e (server + 2 bots solve L2)
-    needs: build-game
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: Unity.Cursory
-      - uses: actions/checkout@v4
-        with:
-          repository: mindattic/Unity.Multiplayer
-          path: Unity.Multiplayer
-          token: ${{ secrets.MINDATTIC_REPOS_TOKEN || github.token }}
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: smoke-build
-          path: Unity.Cursory/smoke/build
-
-      - run: chmod +x Unity.Cursory/smoke/build/*.x86_64
-
-      - name: Build images
-        run: |
-          docker build -f Unity.Multiplayer/server/Rendezvous/Dockerfile -t cursory-rendezvous:ci Unity.Multiplayer
-          docker build -f Unity.Cursory/smoke/Bot.Dockerfile -t cursory-smoke:ci Unity.Cursory/smoke
-
-      - name: Run the stack
-        working-directory: Unity.Cursory/smoke
-        env:
-          RENDEZVOUS_SECRET: ${{ secrets.RENDEZVOUS_SMOKE_SECRET }}
-        run: docker compose up -d
-
-      - name: Wait for both bots to solve level 2
-        working-directory: Unity.Cursory/smoke
-        run: bash wait-for-smoke.sh 300
-
-      - name: Collect logs
-        if: always()
-        working-directory: Unity.Cursory/smoke
-        run: docker compose logs --no-color
-
-      - name: Tear down
-        if: always()
-        working-directory: Unity.Cursory/smoke
-        run: docker compose down -v
+    uses: mindattic/Unity.Multiplayer/.github/workflows/game-smoke.yml@main
+    with:
+      siblings: mindattic/MindAttic.Capture mindattic/MindAttic.Components mindattic/Unity.Shared
+    secrets: inherit

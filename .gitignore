@@ -11,10 +11,6 @@
 /TestResults*.xml
 /Screenshots/
 
-# UC-T14 compose smoke: the Linux player and its logs (tools/run-smoke.ps1)
-/smoke/build/
-/smoke/logs/
-
 # IDE files Unity regenerates (the dotnet test projects under Tests/ are kept)
 *.csproj
 !Tests/**/*.csproj

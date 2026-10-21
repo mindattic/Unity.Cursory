@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Cursory.Core;
 using Unity.Multiplayer;
+using Unity.Multiplayer.Core;
 using Unity.Multiplayer.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -135,7 +136,7 @@ namespace Unity.Cursory
 
         /// <summary>
         /// True when this process should show the game: not batch mode (a dedicated server, a CI run, a headless bot),
-        /// not a dedicated server build, and not started with <see cref="BotDriver.BotArg"/>.
+        /// not a dedicated server build, and not started as a bot (<c>-bot</c>, Unity.Multiplayer's <see cref="BotCommandLine.BotArg"/>).
         /// </summary>
         public static bool ShouldPresent(string[] args, bool batchMode)
         {
@@ -143,7 +144,7 @@ namespace Unity.Cursory
             return false;
 #else
             if (batchMode) return false;
-            return BotDriver.Arg(args, BotDriver.BotArg) == null && !HasFlag(args, BotDriver.BotArg);
+            return !BotCommandLine.Parse(args ?? new string[0]).IsBot && !HasFlag(args, BotCommandLine.BotArg);
 #endif
         }
 

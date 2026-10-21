@@ -25,9 +25,6 @@ namespace Unity.Cursory
         [Tooltip("The level the server plays first (clamped to the library's range).")]
         [SerializeField, Min(1)] private int startLevel = 1;
 
-        /// <summary>Command-line argument that picks the first level, overriding the Inspector (<c>-level 2</c>; UC-T14's nightly bots play level 2).</summary>
-        public const string LevelArg = "-level";
-
         private NetSession _session;
         private IBodySync _bodySync;
         private GeometryBroadcast _geometry;
@@ -55,8 +52,19 @@ namespace Unity.Cursory
         /// <summary>The server's goal pass and wire state (UC-T9), or null until a server session starts.</summary>
         public LevelStateServer LevelState => _levelState;
 
+        /// <summary>
+        /// The level the server plays first: the launch line's <c>-scenario</c> when it names a level (<c>-scenario 2</c>
+        /// or <c>-scenario level2</c>; the nightly bots play level 2), else the Inspector's. Set it before the session starts.
+        /// </summary>
+        public int StartLevel
+        {
+            get => LevelFromScenario(NetBots.Scenario, startLevel);
+            set => startLevel = Mathf.Max(1, value);
+        }
+
         private void Start()
         {
+            if (_session != null) return; // Serve was called already (a test's own session)
             NetBootstrap bootstrap = GetComponent<NetBootstrap>();
             if (bootstrap == null) bootstrap = NetBootstrap.Instance;
             if (bootstrap == null || bootstrap.Session == null)
@@ -65,14 +73,26 @@ namespace Unity.Cursory
                 return;
             }
 
-            _session = bootstrap.Session;
+            Serve(bootstrap.Session, bootstrap.GetComponent<NetworkManager>());
+        }
+
+        /// <summary>
+        /// Serves Cursory's levels on <paramref name="session"/>: registers the network prefabs (and the cursor as the
+        /// player prefab on <paramref name="manager"/>, else this object's NetworkManager) and builds the world whenever it starts as a server. Start does
+        /// this with the scene's <see cref="NetBootstrap"/>; a test calls it with its own session before starting it.
+        /// </summary>
+        public void Serve(NetSession session, NetworkManager manager = null)
+        {
+            if (session == null) throw new System.ArgumentNullException(nameof(session));
+            if (_session != null) throw new System.InvalidOperationException("LevelServer is already serving a session.");
+            _session = session;
             if (_session.Clock != null)
             {
                 Debug.LogWarning("[Unity.Cursory] The session started before LevelServer registered the network prefabs.", this);
             }
 
             _bodySync = NetPrefabs.RegisterAll(_session);
-            NetworkManager manager = bootstrap.GetComponent<NetworkManager>();
+            if (manager == null) manager = GetComponent<NetworkManager>();
             if (manager != null && manager.NetworkConfig != null) manager.NetworkConfig.PlayerPrefab = NetPrefabs.LoadCursorAvatar();
 
             _session.Started += OnStarted;
@@ -104,7 +124,7 @@ namespace Unity.Cursory
             }
 
             Loader = library.CreateLoader();
-            int first = LevelFromCommandLine(System.Environment.GetCommandLineArgs(), startLevel);
+            int first = StartLevel;
             if (first != 1) Loader.Load(first);
             Simulation = new ServerSimulation { Loader = Loader };
             Simulation.World = new PhysicsWorld(Loader.World, "Level " + Loader.CurrentLevel, _bodySync);
@@ -158,21 +178,16 @@ namespace Unity.Cursory
             Whistles = board.GetComponent<WhistleBoard>();
         }
 
-        /// <summary>The level <see cref="LevelArg"/> names in <paramref name="args"/> (<c>-level 2</c> or <c>-level=2</c>), else <paramref name="fallback"/>.</summary>
-        public static int LevelFromCommandLine(string[] args, int fallback)
+        /// <summary>
+        /// The level a scenario names (<c>2</c>, <c>level2</c>, <c>level-2</c>, any case), else <paramref name="fallback"/>.
+        /// </summary>
+        public static int LevelFromScenario(string scenario, int fallback)
         {
-            if (args == null) return fallback;
-            for (int i = 0; i < args.Length; i++)
-            {
-                string arg = args[i];
-                string value = null;
-                if (string.Equals(arg, LevelArg, System.StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length) value = args[i + 1];
-                else if (arg != null && arg.StartsWith(LevelArg + "=", System.StringComparison.OrdinalIgnoreCase)) value = arg.Substring(LevelArg.Length + 1);
-                int level;
-                if (value != null && int.TryParse(value, out level) && level >= 1) return level;
-            }
-
-            return fallback;
+            if (string.IsNullOrWhiteSpace(scenario)) return fallback;
+            string text = scenario.Trim();
+            if (text.StartsWith("level", System.StringComparison.OrdinalIgnoreCase)) text = text.Substring(5).TrimStart('-', '_', ' ');
+            int level;
+            return int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out level) && level >= 1 ? level : fallback;
         }
 
         private void OnEnded(Disconnection reason)

@@ -1,4 +1,6 @@
 {
   "name": "cursory",
-  "image": "mindattic/unity-cursory"
+  "image": "mindattic/unity-cursory",
+  "bots": "A,B",
+  "scenario": "2"
 }
