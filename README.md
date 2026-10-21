@@ -10,4 +10,8 @@ Runner, or `Unity -batchmode -nographics -projectPath . -runTests -testPlatform 
 Dedicated server: `./deploy.ps1` builds the headless Linux server package with Unity.Multiplayer and hands it
 to `mp-host` (`-Profile GenericVps|RunPod|Local`, `-DryRun`); see [docs/hosting.md](docs/hosting.md).
 
+End-to-end: two headless bot clients join a dedicated server by code and solve level 2 together, in process
+(`BotEndToEndTests` in the PlayMode suite) and nightly under Docker Compose (`.github/workflows/nightly.yml`,
+locally `powershell -File tools/run-smoke.ps1`); see [docs/hosting.md](docs/hosting.md#end-to-end-test-bots).
+
 How the system fits together and the rules that keep it coherent: [docs/BIBLE.md](docs/BIBLE.md).

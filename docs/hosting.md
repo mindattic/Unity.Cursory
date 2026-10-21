@@ -75,3 +75,32 @@ printed login and SSH lines are accurate. The rendezvous shared secret is `-Rend
 
 Use `-SkipBuild` to reuse the package that's already built, `-Image`/`-Tag` to choose the GHCR repository
 (default `mindattic/unity-cursory:latest`), and `-Development` for a development player.
+
+## End-to-end test: bots {#end-to-end-test-bots}
+
+Two headless bot clients prove the whole path every night: a dedicated server serves level 2 (Mass 2.0, which one
+cursor can't move), registers with the rendezvous service, and two bots join it by code and pull the block around
+the wall onto the pad together (UC-T14).
+
+- **Bot mode.** Any player build launched with `-bot A` or `-bot B` becomes a `BotDriver`
+  (`Runtime/Bots/BotDriver.cs`). It switches the scene's `NetBootstrap` off before its Start (a headless player
+  would otherwise serve), joins with `-joincode <code>` or the code in `-joincodefile <path>`, and resolves it at
+  `-rendezvous <url>`. Both bots follow the same Core `BotPlan`: grab the block's goal-facing edge a quarter of its
+  height either side of the centre (A above, B below) and pull toward the same waypoints, with no messages between
+  them. A bot logs `[BotDriver:A] OK: ...` when UC-T9's synced `LevelStateSync.LevelSolved` says the level is won,
+  or `FAIL: ...` (and quits with exit code 1) on a failure or after `-bottimeout` seconds (default 180).
+- **Server side.** `-level 2` picks the first level (`LevelServer.LevelArg`) and `-joincodefile <path>` writes the
+  published join code to a file (`JoinCodeFile`) for the bots to read.
+- **In process.** `BotEndToEndTests` (PlayMode) runs the same thing without Docker: `NetBootstrap` + `LevelServer`
+  as the server, an in-process rendezvous service, and two `BotDriver`s joining by code. About 20 seconds.
+- **Under Docker.** `smoke/docker-compose.yml` runs the rendezvous image (Unity.Multiplayer's
+  `server/Rendezvous/Dockerfile`), the server and both bots from one Linux player build
+  (`Unity.Cursory.EditorTools.BotBuild.BuildFromCommandLine`, into `smoke/build/`), as Unity.Multiplayer's own
+  nightly smoke does. `powershell -File tools/run-smoke.ps1` builds and runs it locally; `-SkipBuild` reuses the
+  build and `-Keep` leaves the stack up. The image sets `SDL_VIDEODRIVER=dummy`: without it a plain Linux player run
+  headless crashes on its first frame (SIGSEGV in `sdl::IsX11VideoDriver`, polling the mouse).
+- **CI.** `.github/workflows/nightly.yml` runs nightly and on `workflow_dispatch`: dotnet Core tests, the PlayMode
+  suite and the player build through GameCI, then the compose stack. It needs the `UNITY_LICENSE` secret (as
+  Unity.Multiplayer's CI does), and `MINDATTIC_REPOS_TOKEN` if Unity.Multiplayer or MindAttic.Capture is private.
+  The player is a plain Linux player, not the Dedicated Server subtarget, because GameCI's editor image has no
+  Linux Dedicated Server build support.

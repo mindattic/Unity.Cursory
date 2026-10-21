@@ -1,0 +1,67 @@
+# UC-T14 nightly end-to-end test: the rendezvous service, Cursory's dedicated server on level 2 and two headless bot
+# clients, mirroring Unity.Multiplayer's own smoke/ stack. One Linux player build (Unity.Cursory.EditorTools.BotBuild,
+# unpacked into smoke/build/ and copied into the image by smoke/Bot.Dockerfile) plays the server and both bots:
+#   server - "-mode server -level 2": serves level 2 (Mass 2.0, needs two cursors), registers with the rendezvous
+#            service and writes its join code to the shared volume (JoinCodeFile).
+#   botA/B - "-bot A|B": wait for that file, join by code through the rendezvous service, grab the block's two ends
+#            and pull it around the wall onto the pad (BotDriver). Each logs "[BotDriver:X] OK:" once the server's
+#            synced win (UC-T9 LevelStateSync) says level 2 is solved; smoke/wait-for-smoke.sh watches for both.
+#
+# Run it locally: powershell -File tools/run-smoke.ps1   (builds the player and both images first)
+# By hand:        RENDEZVOUS_SECRET=dev docker compose -f smoke/docker-compose.yml up
+services:
+  rendezvous:
+    image: cursory-rendezvous:ci
+    environment:
+      Rendezvous__RegistrationSecret: ${RENDEZVOUS_SECRET:-smoke-test-secret}
+    healthcheck:
+      test: ["CMD", "dotnet", "Unity.Multiplayer.Rendezvous.dll", "--healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  server:
+    image: cursory-smoke:ci
+    depends_on:
+      rendezvous:
+        condition: service_healthy
+    environment:
+      MINDATTIC_RENDEZVOUS_SECRET: ${RENDEZVOUS_SECRET:-smoke-test-secret}
+    command:
+      - -batchmode
+      - -nographics
+      - -logFile
+      - "-"
+      - -mode
+      - server
+      - -port
+      - "7777"
+      - -transport
+      - udp
+      - -rendezvous
+      - http://rendezvous:8080
+      - -level
+      - "2"
+      - -joincodefile
+      - /shared/join-code.txt
+    volumes:
+      - shared:/shared
+
+  botA:
+    image: cursory-smoke:ci
+    depends_on:
+      - server
+    command: [-batchmode, -nographics, -logFile, "-", -bot, A, -joincodefile, /shared/join-code.txt, -rendezvous, "http://rendezvous:8080", -bottimeout, "240"]
+    volumes:
+      - shared:/shared
+
+  botB:
+    image: cursory-smoke:ci
+    depends_on:
+      - server
+    command: [-batchmode, -nographics, -logFile, "-", -bot, B, -joincodefile, /shared/join-code.txt, -rendezvous, "http://rendezvous:8080", -bottimeout, "240"]
+    volumes:
+      - shared:/shared
+
+volumes:
+  shared:

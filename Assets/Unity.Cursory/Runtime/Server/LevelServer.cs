@@ -25,6 +25,9 @@ namespace Unity.Cursory
         [Tooltip("The level the server plays first (clamped to the library's range).")]
         [SerializeField, Min(1)] private int startLevel = 1;
 
+        /// <summary>Command-line argument that picks the first level, overriding the Inspector (<c>-level 2</c>; UC-T14's nightly bots play level 2).</summary>
+        public const string LevelArg = "-level";
+
         private NetSession _session;
         private IBodySync _bodySync;
         private GeometryBroadcast _geometry;
@@ -95,7 +98,8 @@ namespace Unity.Cursory
             }
 
             Loader = library.CreateLoader();
-            if (startLevel != 1) Loader.Load(startLevel);
+            int first = LevelFromCommandLine(System.Environment.GetCommandLineArgs(), startLevel);
+            if (first != 1) Loader.Load(first);
             Simulation = new ServerSimulation { Loader = Loader };
             Simulation.World = new PhysicsWorld(Loader.World, "Level " + Loader.CurrentLevel, _bodySync);
             Simulation.Bind(_session);
@@ -122,6 +126,23 @@ namespace Unity.Cursory
             board.GetComponent<NetworkObject>().Spawn();
             Votes = board.GetComponent<VoteBoard>();
             Votes.Serve(Loader);
+        }
+
+        /// <summary>The level <see cref="LevelArg"/> names in <paramref name="args"/> (<c>-level 2</c> or <c>-level=2</c>), else <paramref name="fallback"/>.</summary>
+        public static int LevelFromCommandLine(string[] args, int fallback)
+        {
+            if (args == null) return fallback;
+            for (int i = 0; i < args.Length; i++)
+            {
+                string arg = args[i];
+                string value = null;
+                if (string.Equals(arg, LevelArg, System.StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length) value = args[i + 1];
+                else if (arg != null && arg.StartsWith(LevelArg + "=", System.StringComparison.OrdinalIgnoreCase)) value = arg.Substring(LevelArg.Length + 1);
+                int level;
+                if (value != null && int.TryParse(value, out level) && level >= 1) return level;
+            }
+
+            return fallback;
         }
 
         private void OnEnded(Disconnection reason)
