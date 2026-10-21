@@ -235,6 +235,8 @@ namespace Unity.Cursory.Tests
                 "the client was never told the game ended (" + _client.FrontEnd.State + ")");
             Assert.That(_client.FrontEnd.LastMessage.Value.Title, Is.EqualTo("Game ended"));
             Assert.That(FrontEndTesting.MessageDialog(_client.FrontEnd).IsOpen, Is.True, "in a dialog");
+            // UM-T65: a stopping host first tells its clients and finishes once they have gone (at most 2 s), so its own menu follows.
+            yield return Wait(() => _host.FrontEnd.State == FrontEndState.Menu, "the host never got back to its menu (" + _host.FrontEnd.State + ")");
             yield return null;
             Assert.That(HudShown(_client) || HudShown(_host), Is.False, "back on the menus: no HUD");
             Assert.That(_host.Server.IsServing, Is.False, "the host stopped serving");
