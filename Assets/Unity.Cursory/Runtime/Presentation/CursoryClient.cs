@@ -198,6 +198,11 @@ namespace Unity.Cursory
             client.Audio = go.AddComponent<WhistleAudio>();
             client.Hud = CursoryHud.Create(session, LevelCount());
             client.Minimap = MinimapView.Create(client.Hud.Canvas);
+            client.Minimap.Map.Panned += world =>
+            {
+                client.View.X = world.x;   // a click or drag on the map centres the camera there
+                client.View.Y = world.y;
+            };
             client._frontEnd = frontEnd;
             if (frontEnd != null)
             {

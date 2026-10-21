@@ -254,9 +254,10 @@ interface so a compact snapshot can replace them without touching gameplay code.
   Mass, wires, every cursor as an arrow with a name tag, and whistle ripples; `WhistleAudio` plays each player's
   `WhistleTone` as a synthesized clip. **All menus and HUD widgets come from MindAttic Components**
   (`com.mindattic.components.unity`): `CursoryHud` is a `MaToolbar` (level `MaSelect` that proposes a level vote,
-  Reset, a connection `MaTag`, a pause button), the vote overlay and level banner are `MaPanel`s of `MaText` and
-  `MaButton`s, and vote endings and wins are `MaToast`s; the minimap (`Core/Presentation/MinimapTransform`) sits in a
-  `MaPanel`; the per-player switches are `PlayerSettingsItems`, addable to any `MenuScreen` (UC-T12 puts them on the
+  Reset, a connection `MaStatusPill` that pulses while connecting, a pause button), the level banner is an `MaBanner`
+  (fades in and out), vote endings and wins are `MaToast`s, and the minimap is an `MaMinimap` that auto-fits the
+  level's walls, goals and bodies with 8 px of padding (cursors and the camera's view are drawn but not fitted) and pans
+  the camera on a click (UC-T23: the HUD widgets were promoted into MindAttic Components as M.COMP-T46); the per-player switches are `PlayerSettingsItems`, addable to any `MenuScreen` (UC-T12 puts them on the
   library front end's in-game menu). Player
   colours and names come from Unity.Multiplayer's player roster since UM-T55 (`NetSession.Roster`, on every peer, filled
   from the connection approval payload, with the seat's palette colour for a player who kept the default white, and
@@ -264,9 +265,10 @@ interface so a compact snapshot can replace them without touching gameplay code.
   `SeatIndex`), and `CursorAvatar.Player`/`PlayerColor`/`PlayerName` look the player up by seat, so the rope, arrow,
   name tag, minimap dot and whistle ripple (`WhistleBoard` and `CursoryClient` read the roster too) all follow a rename;
   Cursory's own seat palette is gone. Verified by `dotnet test Tests/Core.Tests` (`PointerGestureTests`,
-  `CameraViewTests`, `MinimapTransformTests`, `BodyPickerTests`, `HudTextTests`) and the PlayMode `PresentationTests`
+  `CameraViewTests`, `BodyPickerTests`, `HudTextTests`) and the PlayMode `PresentationTests`
   on a real Host (click vs drag vs grab, the zoom clamp, the HUD following and voting through the board and level
-  state, the payload's colour and name, a rename reaching cursor and rope) and `FrontEndTests` (a client's rename
+  state, the minimap fitting level 1 with padding and panning the camera, the payload's colour and name, a rename reaching
+  cursor and rope) and `FrontEndTests` (a client's rename
   reaching the host's cursor and lobby).
 
 - ✅ **Front end** (UC-T12): Cursory adopts the library's drop-in `NetFrontEnd` exactly as a new game does (Unity.Multiplayer

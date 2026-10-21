@@ -197,9 +197,10 @@ namespace Unity.Cursory.Tests
             yield return WaitFor(() => hud.ShownLevel == 1, "the HUD never showed level 1");
             Assert.That(hud.LevelSelect.Value, Is.EqualTo(0), "Level 1 in the dropdown");
             Assert.That(hud.LevelSelect.Count, Is.EqualTo(14));
-            Assert.That(hud.Banner.Visible, Is.True, "the level banner shows on joining");
-            Assert.That(hud.BannerTitle.Text, Is.EqualTo("Level 1 — Drop it on the pad"));
+            Assert.That(hud.Banner.IsShowing, Is.True, "the level banner shows on joining");
+            Assert.That(hud.Banner.Title.Text, Is.EqualTo("Level 1 — Drop it on the pad"));
             Assert.That(hud.ConnectionPill.Text, Is.EqualTo("Hosting"));
+            Assert.That(hud.ConnectionPill.Kind, Is.EqualTo(MindAttic.Components.Unity.Core.StatusKind.Ok));
             Assert.That(hud.VoteOverlay, Is.Not.Null, "the library's overlay on the room's board (UM-T54)");
             VoteOverlay overlay = hud.VoteOverlay;
             Assert.That(overlay.Panel.Visible, Is.False, "no vote, no overlay");
@@ -231,8 +232,8 @@ namespace Unity.Cursory.Tests
             yield return WaitFor(() => hud.ShownLevel == 3, "the HUD never followed the level state to level 3");
             Assert.That(overlay.Panel.Visible, Is.False);
             Assert.That(hud.LevelSelect.Value, Is.EqualTo(2), "Level 3 in the dropdown");
-            Assert.That(hud.Banner.Visible, Is.True, "the new level's banner");
-            Assert.That(hud.BannerTitle.Text, Is.EqualTo("Level 3 — Pivot the couch"));
+            Assert.That(hud.Banner.IsShowing, Is.True, "the new level's banner");
+            Assert.That(hud.Banner.Title.Text, Is.EqualTo("Level 3 — Pivot the couch"));
 
             // Picking a level in the dropdown proposes it; the dropdown keeps showing the room's level.
             hud.LevelSelect.Value = 4;
@@ -263,8 +264,44 @@ namespace Unity.Cursory.Tests
             Assert.That(me.GetComponent<TetherRenderer>().Color, Is.EqualTo(me.PlayerColor), "the rope follows");
         }
 
+        /// <summary>UC-T23: the minimap fits the level (walls, goals, bodies) with padding instead of the whole world, and a click on it pans the camera.</summary>
+        [UnityTest]
+        public IEnumerator The_minimap_fits_the_level_with_padding_and_pans_the_camera()
+        {
+            yield return StartHostAndClient();
+            yield return WaitFor(() => _client.Hud.ShownLevel == 1 && _client.Minimap.Draws > 0, "the minimap never drew level 1");
+            _client.Minimap.Draw(CursoryClient.LevelDefinition(1), null, null, null, _client.View, ScreenSize, force: true);
+            MaMinimap map = _client.Minimap.Map;
+            Assert.That(map.AutoFit, Is.True);
+            Assert.That(map.ContentBounds.HasValue, Is.True);
+            var bounds = map.ContentBounds.Value;
+            LevelData level = CursoryClient.LevelDefinition(1);
+            foreach (Wall w in level.Walls)
+            {
+                Assert.That(bounds.Contains(w.X - w.W / 2f, w.Y - w.H / 2f) && bounds.Contains(w.X + w.W / 2f, w.Y + w.H / 2f), Is.True, "every wall is inside the fitted bounds");
+            }
+
+            var (left, bottom) = map.Fit.ToMap(bounds.X, bounds.Y);
+            var (right, top) = map.Fit.ToMap(bounds.XMax, bounds.YMax);
+            float size = MinimapView.Resolution, pad = MinimapView.Padding;
+            Assert.That(Mathf.Max(right - left, top - bottom), Is.EqualTo(size - 2f * pad).Within(0.01f), "the level spans the map, less the padding");
+            Assert.That(Mathf.Min(left, bottom), Is.GreaterThanOrEqualTo(pad - 0.01f));
+            Assert.That(Mathf.Max(right, top), Is.LessThanOrEqualTo(size - pad + 0.01f));
+            Assert.That(bounds.W, Is.LessThan(WorldUnits.WorldSizePx / 2f), "level 1 is a small part of the world, so a whole-world map would maroon it");
+
+            // A press on the map's centre pans the camera to the level's centre.
+            RectTransform image = map.Image.rectTransform;
+            Vector2 centre = RectTransformUtility.WorldToScreenPoint(null, image.TransformPoint(image.rect.center));
+            map.OnPointerDown(new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current)
+            {
+                position = centre, button = UnityEngine.EventSystems.PointerEventData.InputButton.Left,
+            });
+            Assert.That(_client.View.X, Is.EqualTo(bounds.CenterX).Within(bounds.W / size * 2f + 1f));
+            Assert.That(_client.View.Y, Is.EqualTo(bounds.CenterY).Within(bounds.H / size * 2f + 1f));
+        }
+
         /// <summary>
-        /// Renders the HUD over level 1 to <c>Screenshots/uc-t11-hud.png</c> when the run has a graphics device (a
+        /// Renders the HUD over level 1 to <c>Screenshots/uc-t23-hud.png</c> when the run has a graphics device (a
         /// batch-mode run without -nographics); with none it only checks the HUD built.
         /// </summary>
         [UnityTest]
@@ -308,12 +345,12 @@ namespace Unity.Cursory.Tests
             shot.Apply();
             RenderTexture.active = null;
             camera.targetTexture = null;
-            string path = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Screenshots", "uc-t11-hud.png"));
+            string path = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Screenshots", "uc-t23-hud.png"));
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllBytes(path, shot.EncodeToPNG());
             Object.Destroy(shot);
             rt.Release();
-            Debug.Log("[UC-T11] HUD screenshot: " + path);
+            Debug.Log("[UC-T23] HUD screenshot: " + path);
             Assert.That(File.Exists(path), Is.True);
         }
     }

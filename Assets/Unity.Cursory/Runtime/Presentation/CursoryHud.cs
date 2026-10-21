@@ -14,8 +14,8 @@ namespace Unity.Cursory
     /// <summary>
     /// The in-game HUD (UC-T11, Cursory's room HUD), built entirely from MindAttic Components: a top
     /// <see cref="MaToolbar"/> with the level dropdown (<see cref="MaSelect"/>, picking a level starts a level vote),
-    /// Reset (starts a reset vote), the connection pill (<see cref="MaTag"/>) and a pause button; the level banner (a
-    /// panel that shows a level's signpost for <see cref="HudText.BannerSeconds"/> when the level changes); and a toast when
+    /// Reset (starts a reset vote), the connection pill (<see cref="MaStatusPill"/>) and a pause button; the level banner (a
+    /// <see cref="MaBanner"/> with a level's signpost for <see cref="HudText.BannerSeconds"/> when the level changes); and a toast when
     /// the level is won. The vote itself (question, tally, Yes/No, result toast) is Unity.Multiplayer's ready-made
     /// <see cref="VoteOverlay"/> on the room's <see cref="VoteBoard"/> (UM-T54).
     /// </summary>
@@ -30,7 +30,6 @@ namespace Unity.Cursory
         private VoteBoard _board;
         private LevelStateSync _level;
         private int _shownLevel;
-        private float _bannerUntil;
         private int _levelCount;
 
         private CursoryHud(NetSession session)
@@ -48,20 +47,16 @@ namespace Unity.Cursory
 
         public MaButton ResetButton { get; private set; }
 
-        /// <summary>The connection pill: Live, Hosting, Connecting…, Offline.</summary>
-        public MaTag ConnectionPill { get; private set; }
+        /// <summary>The connection pill: Live, Hosting, Connecting… (pulsing), Offline.</summary>
+        public MaStatusPill ConnectionPill { get; private set; }
 
         public MaIconButton PauseButton { get; private set; }
 
         /// <summary>The library's vote overlay on the bound board (below the toolbar); null until a board is bound.</summary>
         public VoteOverlay VoteOverlay { get; private set; }
 
-        /// <summary>The level banner; visible for a few seconds after the level changes.</summary>
-        public MaPanel Banner { get; private set; }
-
-        public MaText BannerTitle { get; private set; }
-
-        public MaText BannerSubtitle { get; private set; }
+        /// <summary>The level banner; showing for a few seconds after the level changes.</summary>
+        public MaBanner Banner { get; private set; }
 
         /// <summary>The board this HUD shows and sends votes to; null until bound.</summary>
         public VoteBoard Board => _board;
@@ -95,15 +90,14 @@ namespace Unity.Cursory
             ResetButton = Toolbar.AddButton("Reset", OnReset, ButtonVariant.Secondary);
             ResetButton.WithTooltip("Start a vote to reset the level");
             Toolbar.AddFlexibleSpace();
-            ConnectionPill = Toolbar.Add(MaTag.Create(Toolbar, "Connecting…", TagTone.Warning));
+            ConnectionPill = Toolbar.Add(MaStatusPill.Create(Toolbar, "Connecting…", StatusKind.Warn));
             PauseButton = Toolbar.AddIconButton(MaIcon.Pause, () => PauseRequested?.Invoke(), "Menu (Esc)");
 
-            Banner = MaPanel.Create(Canvas, PanelStyle.Surface, "Level Banner");
-            Place(Banner.RectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, 1100f);   // mid-screen, below the vote overlay
-            Column(Banner.gameObject);
-            BannerTitle = MaText.Create(Banner, "", TextStyle.Title, TextAlignmentOptions.Center);
-            BannerSubtitle = MaText.Create(Banner, "", TextStyle.Muted, TextAlignmentOptions.Center);
-            Banner.Visible = false;
+            Banner = MaBanner.Create(Canvas, 1100f);
+            Banner.name = "Level Banner";
+            RectTransform rt = Banner.RectTransform;
+            rt.pivot = new Vector2(0.5f, 1f);   // its top at mid-screen, below the vote overlay
+            rt.anchoredPosition = Vector2.zero;
         }
 
         /// <summary>Starts votes on <paramref name="board"/> and shows them through its <see cref="VoteOverlay"/> (null unbinds).</summary>
@@ -133,9 +127,8 @@ namespace Unity.Cursory
         /// <summary>Mirrors the bound state now: connection pill, level dropdown and banner (the vote overlay refreshes itself).</summary>
         public void Refresh()
         {
-            var (pill, tone) = ConnectionPillText.Describe(_session != null ? _session.State : SessionState.Idle, _session != null && _session.IsHost);
-            if (ConnectionPill.Text != pill) ConnectionPill.Text = pill;
-            if (ConnectionPill.Tone != tone) ConnectionPill.Tone = tone;
+            var (pill, kind) = ConnectionPillText.Describe(_session != null ? _session.State : SessionState.Idle, _session != null && _session.IsHost);
+            ConnectionPill.Set(pill, kind);
 
             bool live = _session != null && _session.IsClient;
             ResetButton.Interactable = live && _board != null && !_board.IsVoteOpen;
@@ -148,19 +141,14 @@ namespace Unity.Cursory
                 if (level <= LevelSelect.Count) LevelSelect.SetValueWithoutNotify(level - 1);
                 ShowBanner(level);   // on joining, and on every load or switch
             }
-            if (Banner.Visible && Time.unscaledTime >= _bannerUntil) Banner.Visible = false;
         }
 
-        /// <summary>Shows level <paramref name="number"/>'s banner for <see cref="HudText.BannerSeconds"/>.</summary>
+        /// <summary>Shows level <paramref name="number"/>'s banner for <see cref="HudText.BannerSeconds"/> (in place of any already up).</summary>
         public void ShowBanner(int number)
         {
             LevelData data = CursoryClient.LevelDefinition(number);
             var (title, subtitle) = HudText.Banner(data, number);
-            BannerTitle.Text = title;
-            BannerSubtitle.Text = subtitle;
-            BannerSubtitle.Visible = !string.IsNullOrEmpty(subtitle);
-            Banner.Visible = true;
-            _bannerUntil = Time.unscaledTime + HudText.BannerSeconds;
+            Banner.Show(title, subtitle, HudText.BannerSeconds, replace: true);
         }
 
         /// <summary>Destroys the HUD's canvas.</summary>
@@ -200,47 +188,22 @@ namespace Unity.Cursory
         {
             MaToast.Show("Level " + (_level != null ? _level.LevelNumber : _shownLevel) + " solved!", ToastKind.Success);
         }
-
-        /// <summary>Anchors a panel at <paramref name="anchor"/> (pivot top-centre), <paramref name="width"/> wide, sized to its content.</summary>
-        private static void Place(RectTransform rt, Vector2 anchor, Vector2 offset, float width)
-        {
-            rt.anchorMin = anchor;
-            rt.anchorMax = anchor;
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = offset;
-            rt.sizeDelta = new Vector2(width, 0f);
-        }
-
-        /// <summary>A padded vertical stack that grows to fit its children.</summary>
-        private static void Column(GameObject go)
-        {
-            var layout = go.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(48, 48, 32, 32);
-            layout.spacing = 16f;
-            layout.childAlignment = TextAnchor.UpperCenter;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-            var fit = go.AddComponent<ContentSizeFitter>();
-            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        }
     }
 
-    /// <summary>The connection pill's words and tone for a session state (Cursory's Live / Reconnecting… / Offline / Connecting…).</summary>
+    /// <summary>The connection pill's words and kind for a session state (Cursory's Live / Reconnecting… / Offline / Connecting…).</summary>
     public static class ConnectionPillText
     {
-        /// <summary>What the pill says for <paramref name="state"/>; a Host says "Hosting".</summary>
-        public static (string Text, TagTone Tone) Describe(SessionState state, bool isHost)
+        /// <summary>What the pill says for <paramref name="state"/>; a Host says "Hosting". A Warn pill pulses.</summary>
+        public static (string Text, StatusKind Kind) Describe(SessionState state, bool isHost)
         {
             switch (state)
             {
-                case SessionState.Running: return (isHost ? "Hosting" : "Serving", TagTone.Success);
-                case SessionState.Connected: return ("Live", TagTone.Success);
+                case SessionState.Running: return (isHost ? "Hosting" : "Serving", StatusKind.Ok);
+                case SessionState.Connected: return ("Live", StatusKind.Ok);
                 case SessionState.Starting:
-                case SessionState.Connecting: return ("Connecting…", TagTone.Warning);
-                case SessionState.Stopping: return ("Leaving…", TagTone.Warning);
-                default: return ("Offline", TagTone.Danger);
+                case SessionState.Connecting: return ("Connecting…", StatusKind.Warn);
+                case SessionState.Stopping: return ("Leaving…", StatusKind.Warn);
+                default: return ("Offline", StatusKind.Error);
             }
         }
     }

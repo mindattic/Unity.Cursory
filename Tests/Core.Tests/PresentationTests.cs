@@ -136,49 +136,6 @@ namespace Unity.Cursory.Core.Tests
         }
     }
 
-    public class MinimapTransformTests
-    {
-        [Test]
-        public void The_world_maps_onto_160px_with_a_2px_floor()
-        {
-            var map = new MinimapTransform();
-            Assert.That(map.ScaleX, Is.EqualTo(0.016f).Within(1e-6));
-            Assert.That(map.ToMap(5000, 10000), Is.EqualTo((80f, 160f)));
-            var wall = map.Feature(5000, 5000, 180, 1200);
-            Assert.That(wall.X, Is.EqualTo(78.56f).Within(1e-3));
-            Assert.That(wall.W, Is.EqualTo(2.88f).Within(1e-3));
-            Assert.That(wall.H, Is.EqualTo(19.2f).Within(1e-3));
-            var tiny = map.Feature(100, 100, 10, 10);
-            Assert.That((tiny.W, tiny.H), Is.EqualTo((2f, 2f)), "small geometry keeps a 2 px floor");
-            Assert.That(map.ToWorld(80, 160), Is.EqualTo((5000f, 10000f)));
-        }
-
-        [Test]
-        public void The_viewport_rectangle_follows_the_camera_and_is_clipped_to_the_map()
-        {
-            var map = new MinimapTransform();
-            var cam = new CameraView { X = 5000, Y = 5000, Zoom = 1f };
-            var v = map.Viewport(cam, 1000, 500);
-            Assert.That(v.X, Is.EqualTo(72f).Within(1e-3));
-            Assert.That(v.Y, Is.EqualTo(76f).Within(1e-3));
-            Assert.That(v.W, Is.EqualTo(16f).Within(1e-3));
-            Assert.That(v.H, Is.EqualTo(8f).Within(1e-3));
-
-            cam.X = 0;
-            cam.Y = 0;
-            cam.Zoom = 0.1f;
-            var clipped = map.Viewport(cam, 1920, 1080);
-            Assert.That(clipped.X, Is.EqualTo(0f));
-            Assert.That(clipped.Y, Is.EqualTo(0f));
-            Assert.That(clipped.W, Is.EqualTo(153.6f).Within(1e-3));
-            Assert.That(clipped.H, Is.EqualTo(86.4f).Within(1e-3));
-        }
-
-        [Test]
-        public void Sizes_must_be_positive() =>
-            Assert.That(() => new MinimapTransform(0f), Throws.TypeOf<System.ArgumentOutOfRangeException>());
-    }
-
     public class BodyPickerTests
     {
         [Test]

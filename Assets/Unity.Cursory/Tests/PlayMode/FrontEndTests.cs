@@ -225,7 +225,7 @@ namespace Unity.Cursory.Tests
             yield return null;
             Assert.That(HudShown(_host), Is.True, "the host is in the game: HUD up");
             Assert.That(_host.Client.IsMenuOpen, Is.False);
-            Assert.That(_host.Client.Hud.Banner.Visible, Is.True, "the level's signpost on entering the game");
+            Assert.That(_host.Client.Hud.Banner.IsShowing, Is.True, "the level's signpost on entering the game");
 
             // The host ends the game: the client is told why, back on its menu, HUD gone.
             _host.FrontEnd.PauseMenu.Open();
