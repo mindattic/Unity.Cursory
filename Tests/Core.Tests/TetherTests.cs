@@ -3,16 +3,16 @@ using NUnit.Framework;
 
 namespace Unity.Cursory.Core.Tests
 {
-    /// <summary>UC-T8: the leash and pull readout, cut tests, and a body's corners and boxes (Cursory's RoomState tether maths).</summary>
+    /// <summary>UC-T8, UC-T33: the leash and rope length, cut tests, and a body's corners and boxes (Cursory's RoomState tether maths).</summary>
     public class TetherGeometryTests
     {
         [Test]
-        public void Leash_HoldsAFarCursorAtMaxPull()
+        public void Leash_HoldsAFarCursorAtTheRopesEnd()
         {
             var (x, y) = TetherGeometry.Leash(100f, 100f, 100f + 600f, 100f + 800f);   // 1000 px away
             Assert.That(x, Is.EqualTo(100f + 180f).Within(1e-3f));
             Assert.That(y, Is.EqualTo(100f + 240f).Within(1e-3f), "slid back along the rope to 300 px");
-            Assert.That(Tuning.MaxPullPx, Is.EqualTo(300f));
+            Assert.That(Tuning.RopeLengthPx, Is.EqualTo(300f));
         }
 
         [TestCase(0f, 0f)]
@@ -30,13 +30,20 @@ namespace Unity.Cursory.Core.Tests
             Assert.That(x, Is.EqualTo(20f).Within(1e-4f));
         }
 
-        [TestCase(0f, 0f)]
-        [TestCase(150f, 0.75f)]
-        [TestCase(300f, 1.5f)]
-        [TestCase(900f, 1.5f)]
-        public void PullMass_SaturatesAtOneGrabsCeiling(float length, float mass)
+        [Test]
+        public void PathLength_AddsUpTheSegments()
         {
-            Assert.That(TetherGeometry.PullMass(0f, 0f, 0f, length), Is.EqualTo(mass).Within(1e-4f));
+            Assert.That(TetherGeometry.PathLength(new[] { (0f, 0f), (30f, 40f), (30f, 100f) }), Is.EqualTo(110f).Within(1e-4f));
+            Assert.That(TetherGeometry.PathLength(new[] { (5f, 5f) }), Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void FreeLength_IsWhatTheCornersLeaveOfTheRope()
+        {
+            Assert.That(TetherGeometry.FreeLength(new[] { (50f, 0f) }), Is.EqualTo(Tuning.RopeLengthPx), "a straight rope is all free");
+            Assert.That(TetherGeometry.FreeLength(new[] { (50f, 0f), (50f, -50f), (-50f, -50f) }), Is.EqualTo(Tuning.RopeLengthPx - 150f).Within(1e-4f));
+            Assert.That(TetherGeometry.FreeLength(new[] { (0f, 0f), (1000f, 0f) }), Is.EqualTo(TetherGeometry.MinFreeLengthPx),
+                "a rope wrapped past its length keeps a sliver free");
         }
 
         [Test]
@@ -212,6 +219,39 @@ namespace Unity.Cursory.Core.Tests
                 wrap.Update(-14f, 0f, corners, rects, 400f - step * 25f, step % 2 == 0 ? 400f : -400f);
                 Assert.That(wrap.Corners.Count, Is.LessThanOrEqualTo(TetherWrap.MaxCorners));
             }
+        }
+
+        /// <summary>UC-T33: a corner grab's rope starts on that corner, so it must wrap the next corner along, not catch its own.</summary>
+        [Test]
+        public void ACornerGrab_WrapsTheNextCornerRoundTowardTheCursor()
+        {
+            var wrap = new TetherWrap();
+            Assert.That(wrap.Update(50f, 50f, Corners, Rects, -10f, -250f), Is.True, "below the block, the rope from the top-right corner cuts it");
+
+            Assert.That(wrap.Corners, Is.EqualTo(new[] { 1 }), "it slides down the right edge to the bottom-right corner");
+            var other = new TetherWrap();
+            other.Update(50f, 50f, Corners, Rects, -250f, -10f);
+            Assert.That(other.Corners, Is.EqualTo(new[] { 3 }), "to the left, along the top edge to the top-left corner");
+        }
+
+        /// <summary>UC-T33: the cursor passes over bodies; over one, its rope rises from the rim to it and catches nothing.</summary>
+        [Test]
+        public void ACursorOverTheBody_CatchesNothing()
+        {
+            var wrap = new TetherWrap();
+            Assert.That(wrap.Update(AnchorX, AnchorY, Corners, Rects, -20f, -10f), Is.False);
+            Assert.That(wrap.Corners, Is.Empty);
+        }
+
+        /// <summary>UC-T33: a rope can't reach round a corner further away than its length.</summary>
+        [Test]
+        public void ACornerBeyondTheRopesLength_IsNotCaught()
+        {
+            var wrap = new TetherWrap();
+            wrap.Update(AnchorX, AnchorY, Corners, Rects, -230f, -30f, maxChainLength: 120f);
+            Assert.That(wrap.Corners, Is.EqualTo(new[] { 1 }), "50 px down the edge: within reach");
+            wrap.Update(AnchorX, AnchorY, Corners, Rects, -200f, 40f, maxChainLength: 120f);
+            Assert.That(wrap.Corners, Is.EqualTo(new[] { 1 }), "the next corner is 100 px further: 150 is past 120");
         }
 
         [Test]

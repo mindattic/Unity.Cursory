@@ -6,36 +6,32 @@ using UnityEngine;
 namespace Unity.Cursory
 {
     /// <summary>
-    /// UC-T8: the cursor's tether and its two per-player settings. Each player chooses, for their own cursor only,
-    /// whether their rope is segmented (catches on body corners, <see cref="TetherWrap"/>) and whether their cursor
-    /// collides with walls and shapes (<see cref="CursorCollision"/>, radius <see cref="Tuning.CursorRadius"/>). Both
-    /// are <c>[Synced]</c> on this avatar, so every peer sees each player's own choice; the server honours each
-    /// cursor's settings in physics. (Cursory had one room-wide boolean for each, which every player's toggle overwrote.)
+    /// UC-T8, UC-T33: the cursor's body and rope as every peer sees them, and the player's one cursor setting. The server
+    /// writes <see cref="Position"/> (the cursor's physical body) and <see cref="Tether"/> (its rope's chain) after every
+    /// tick; each player chooses, for their own cursor only, whether their pointer collides with walls and shapes
+    /// (<see cref="CursorCollision"/>, radius <see cref="Tuning.CursorRadius"/>). It is <c>[Synced]</c> on this avatar, so
+    /// every peer sees each player's own choice. (Cursory had one room-wide boolean, which every player's toggle overwrote.)
     /// </summary>
     /// <example>
-    /// The pause menu (UC-T11) flips the local player's own settings; any peer reads anyone's.
+    /// The pause menu (UC-T11) flips the local player's own setting; any peer reads anyone's, and draws anyone's rope.
     /// <code>
     /// CursorAvatar me = CursorAvatar.Local(session);
-    /// me.SetSegmentedTether(true);     // [ToServer]: the server writes SegmentedTether, every peer sees it
-    /// me.SetCursorCollision(!me.CursorCollision);
-    /// bool theirs = CursorAvatar.ForClient(session, otherId).SegmentedTether;
+    /// me.SetCursorCollision(!me.CursorCollision);   // [ToServer]: the server writes CursorCollision, every peer sees it
+    /// var rope = new List&lt;Vector2&gt;();
+    /// if (CursorAvatar.ForClient(session, otherId).TryGetRope(rope)) Draw(rope);
     /// </code>
     /// </example>
     /// <remarks>
-    /// <para>The rope: while this cursor holds a block, shape or wall, the server keeps <see cref="Tether"/> (the chain
-    /// from the rim anchor through any caught corners, world pixels) up to date every tick, re-anchors the grab's
-    /// joint on the rope's last contact, and leashes <see cref="Position"/> within <see cref="Tuning.MaxPullPx"/> of
-    /// that contact: the leash end is exactly where a pull saturates, so the drawn rope and the force agree.
-    /// <see cref="TryGetRope"/> gives any peer the polyline to draw (<see cref="TetherRenderer"/> draws it).</para>
-    /// <para>Cursor collision runs on the server on every <see cref="Move"/>, before the leash, so a colliding cursor's
-    /// replicated position and its grab's target are never inside a wall or a shape.</para>
+    /// <para>The rope (UC-T33): while this cursor holds a block, shape or wall, <see cref="PhysicsWorld"/> ties its body
+    /// to the rim with a max-length rope that wraps the body's corners (always on; the UC-T8 per-player "segmented
+    /// tether" switch is gone). <see cref="Tether"/> is the chain from the rim anchor through any caught corners, world
+    /// pixels; <see cref="TryGetRope"/> adds the cursor's end, and <see cref="TetherRenderer"/> draws it.</para>
+    /// <para>Cursor collision runs on the server on every <see cref="Move"/>: a colliding player's pointer is pushed out of
+    /// walls and shapes before the cursor's spring is aimed at it.</para>
     /// </remarks>
     public partial class CursorAvatar
     {
-        /// <summary>This player's choice: their rope catches on body corners. Off by default. Set it with <see cref="SetSegmentedTether"/>.</summary>
-        [Synced] private bool _segmentedTether;
-
-        /// <summary>This player's choice: their cursor is a disc that walls and shapes push out. Off by default. Set it with <see cref="SetCursorCollision"/>.</summary>
+        /// <summary>This player's choice: their pointer is a disc that walls and shapes push out. Off by default. Set it with <see cref="SetCursorCollision"/>.</summary>
         [Synced] private bool _cursorCollision;
 
         /// <summary>The rope every peer draws for this cursor; empty when it holds nothing a rope goes to. The server writes it each tick.</summary>
@@ -43,10 +39,7 @@ namespace Unity.Cursory
 
         private readonly List<(float X, float Y)> _chain = new List<(float X, float Y)>();
         private ServerSimulation _tetherSim;
-
-        /// <summary>Turns this player's segmented tether on or off (the owner calls it; the server writes <see cref="SegmentedTether"/>).</summary>
-        [ToServer]
-        public partial void SetSegmentedTether(bool on);
+        private bool _pointerKnown;
 
         /// <summary>Turns this player's cursor collision on or off (the owner calls it; the server writes <see cref="CursorCollision"/>).</summary>
         [ToServer]
@@ -54,8 +47,7 @@ namespace Unity.Cursory
 
         /// <summary>
         /// Any peer: the rope to draw, in world pixels, into <paramref name="points"/> (cleared first): the chain of
-        /// <see cref="Tether"/>, then the cursor's end, held within <see cref="Tuning.MaxPullPx"/> of the contact.
-        /// False (and nothing added) when this cursor has no rope.
+        /// <see cref="Tether"/>, then the cursor (<see cref="Position"/>). False (and nothing added) when this cursor has no rope.
         /// </summary>
         public bool TryGetRope(List<Vector2> points)
         {
@@ -64,17 +56,8 @@ namespace Unity.Cursory
             TetherSync tether = Tether;
             if (tether.Count == 0) return false;
             for (var i = 0; i < tether.Count; i++) points.Add(tether[i]);
-            Vector2 contact = tether.Contact;
-            Vector2 cursor = Position;
-            var (x, y) = TetherGeometry.Leash(contact.x, contact.y, cursor.x, cursor.y);
-            points.Add(new Vector2(x, y));
+            points.Add(Position);
             return true;
-        }
-
-        private void OnSetSegmentedTether(bool on)
-        {
-            SegmentedTether = on;
-            RefreshTether();
         }
 
         private void OnSetCursorCollision(bool on)
@@ -82,17 +65,19 @@ namespace Unity.Cursory
             CursorCollision = on;
             if (on)
             {
-                Vector2 resolved = ConstrainCursor(Position);
-                if (resolved != Position)
+                Vector2 resolved = ConstrainPointer(Pointer);
+                if (resolved != Pointer)
                 {
-                    Position = resolved;
-                    World?.MoveCursor(OwnerClientId, resolved.x, resolved.y);
+                    Pointer = resolved;
+                    PhysicsWorld world = World;
+                    if (world != null) world.MoveCursor(OwnerClientId, resolved.x, resolved.y);
+                    else Position = resolved;
                 }
             }
         }
 
-        /// <summary>Server: what a raw <see cref="Move"/> becomes for this player: out of solids if they collide, then leashed to their rope.</summary>
-        private Vector2 ConstrainCursor(Vector2 worldPos)
+        /// <summary>Server: what a raw <see cref="Move"/> becomes for this player: out of walls and shapes if they collide.</summary>
+        private Vector2 ConstrainPointer(Vector2 worldPos)
         {
             PhysicsWorld world = World;
             if (CursorCollision && world != null)
@@ -101,21 +86,13 @@ namespace Unity.Cursory
                 worldPos = new Vector2(cx, cy);
             }
 
-            TetherSync tether = Tether;
-            if (tether.Count > 0)
-            {
-                Vector2 contact = tether.Contact;
-                var (lx, ly) = TetherGeometry.Leash(contact.x, contact.y, worldPos.x, worldPos.y);
-                worldPos = new Vector2(lx, ly);
-            }
-
             return worldPos;
         }
 
         /// <summary>
-        /// Server: brings <see cref="Tether"/> up to date with what this cursor holds and where the body is now (after a
-        /// grab, a release, a settings change, and every tick), re-anchors the grab on the rope's contact, and leashes
-        /// <see cref="Position"/> to it.
+        /// Server: brings <see cref="Position"/> and <see cref="Tether"/> up to date with the cursor's body and rope in the
+        /// current world (after a grab, a release, and every tick). A world rebuilt since the last tick has no body for this
+        /// cursor yet; it gets one at the player's pointer.
         /// </summary>
         private void RefreshTether()
         {
@@ -124,32 +101,28 @@ namespace Unity.Cursory
 
             PhysicsWorld world = World;
             TetherSync next = default;
-            if ((Held == GrabKind.Block || Held == GrabKind.Shape) && world != null
-                && world.UpdateTether(OwnerClientId, SegmentedTether, _chain))
+            if (world != null && !world.IsDisposed)
             {
-                next = TetherSync.From(_chain);
-            }
-            else if (Held == GrabKind.Wall && HeldAnchor.HasValue && world != null && world.HasWall(HeldId))
-            {
-                var (wx, wy) = world.WallCentre(HeldId);
-                next = TetherSync.Single(wx + HeldAnchor.Value.x, wy + HeldAnchor.Value.y);
+                if (_pointerKnown && !world.HasCursor(OwnerClientId)) world.MoveCursor(OwnerClientId, Pointer.x, Pointer.y);
+                if (world.TryGetCursor(OwnerClientId, out var at))
+                {
+                    var position = new Vector2(at.X, at.Y);
+                    if (position != Position) Position = position;
+                }
+
+                if ((Held == GrabKind.Block || Held == GrabKind.Shape || Held == GrabKind.Wall) && world.TryGetRope(OwnerClientId, _chain))
+                {
+                    next = TetherSync.From(_chain);
+                }
             }
 
             if (!next.Equals(Tether)) Tether = next;
-            if (next.Count == 0) return;
-
-            // The body moved this tick: keep the cursor on the leash. The grab's target needs no clamp of its own: past
-            // the leash the pull is already at its cap, along the same line from the contact.
-            Vector2 contact = next.Contact;
-            Vector2 cursor = Position;
-            var (x, y) = TetherGeometry.Leash(contact.x, contact.y, cursor.x, cursor.y);
-            var leashed = new Vector2(x, y);
-            if (leashed != cursor) Position = leashed;
         }
 
         /// <summary>Server: ticks <see cref="RefreshTether"/> from whichever simulation this session is bound to now (it can be bound after this avatar spawns).</summary>
         private void FollowSimulation()
         {
+            if (!IsServer) return;
             ServerSimulation sim = ServerSimulation.For(Session);
             if (sim == _tetherSim) return;
             StopFollowingSimulation();

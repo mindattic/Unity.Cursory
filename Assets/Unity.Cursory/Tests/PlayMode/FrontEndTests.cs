@@ -265,27 +265,21 @@ namespace Unity.Cursory.Tests
             Assert.That(FrontEndTesting.Buttons(pause), Is.EqualTo(new[] { "Resume", "Settings", "Leave game" }), "the library's items");
             PlayerSettingsItems items = _client.Client.Settings;
             Assert.That(items, Is.Not.Null, "Cursory's switches were added");
-            Assert.That(pause.GetComponentsInChildren<MaToggle>(), Is.SupersetOf(new[] { items.CursorCollision, items.SegmentedTether }),
-                "Cursory's switches sit on the library's in-game menu");
-            Assert.That(items.CursorCollision.Value || items.SegmentedTether.Value, Is.False, "both off by default");
+            Assert.That(pause.GetComponentsInChildren<MaToggle>(), Contains.Item(items.CursorCollision),
+                "Cursory's switch sits on the library's in-game menu (UC-T33: every rope wraps, so the segmented-tether switch is gone)");
+            Assert.That(items.CursorCollision.Value, Is.False, "off by default");
 
             items.CursorCollision.Value = true;
             yield return Wait(() => serverCopy.CursorCollision && mine.CursorCollision, "Cursor collision never reached the server and back");
-            Assert.That(serverCopy.SegmentedTether, Is.False);
-            items.SegmentedTether.Value = true;
-            yield return Wait(() => serverCopy.SegmentedTether && mine.SegmentedTether, "Segmented tether never reached the server and back");
-            items.CursorCollision.Value = false;
-            yield return Wait(() => !serverCopy.CursorCollision, "turning collision off never reached the server");
 
             FrontEndTesting.Click(pause, "Resume");
             yield return null;
             Assert.That(_client.FrontEnd.PauseMenu.IsOpen, Is.False, "Resume closes it");
             Assert.That(_client.Client.IsMenuOpen, Is.False, "the world takes the pointer again");
-            items.SegmentedTether.SetValueWithoutNotify(false);
+            items.CursorCollision.SetValueWithoutNotify(false);
             _client.Client.OpenMenu();
             yield return null;
-            Assert.That(items.SegmentedTether.Value, Is.True, "reopening shows the server's values");
-            Assert.That(items.CursorCollision.Value, Is.False);
+            Assert.That(items.CursorCollision.Value, Is.True, "reopening shows the server's value");
             Assert.That(_host.FrontEnd.PauseMenu.IsOpen, Is.False, "one player's menu is theirs alone");
         }
 

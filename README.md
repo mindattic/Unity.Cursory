@@ -25,9 +25,10 @@ Try it: on Windows, clone the repo with its sibling packages and run `deploy.bat
 
 ### The puzzle
 
-- Cursory's 14 levels, ported one for one, with their original Masses (1 to 2.6) on Unity Physics2D: real rigid bodies, friction joints, and grabs as force-capped joints on a body's edge, so cooperative drags, pivots and torque come out of the solver.
+- Cursory's 14 levels, ported one for one, with their original Masses (1 to 2.6) on Unity Physics2D: real rigid bodies and friction joints, so cooperative drags, pivots and torque come out of the solver.
+- Your cursor is a light physical body pulled toward your pointer (shown as a faint ghost) by a spring capped at your pull strength. Grab anywhere on a body's rim and a real rope ties the two: it has a maximum length, wraps the body's corners, and pulls both ways, so a load heavier than you drags your cursor toward it, pulling round a corner spins the body toward you, and two players on opposite ends can turn a bar that one can't.
 - Blocks and compound shapes to push onto goal pads, and a circuit level where you carry wire ends onto terminals to light a bulb.
-- Per-player settings in the Esc menu: a segmented rope that catches on corners, and cursor collision with walls and shapes.
+- A per-player setting in the Esc menu: cursor collision with walls and shapes.
 - Votes for Reset and for switching level (2/3 quorum, 15 seconds), shown in an overlay with the live tally.
 - Whistles: click empty space to send a ripple in your colour with your own tone.
 

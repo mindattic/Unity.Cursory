@@ -24,21 +24,24 @@ namespace Unity.Cursory.Core
     }
 
     /// <summary>
-    /// The rope between a cursor and what it holds (UC-T8, ported from Cursory's <c>RoomState</c>
-    /// <c>LeashAndReport</c>, <c>PullMassFor</c>, <c>SegmentRectEntry</c> and the corner lists): the leash that keeps
-    /// a grabbing cursor within <see cref="Tuning.MaxPullPx"/> of its contact, the pull readout that saturates at the
-    /// same length, and a body's corners and boxes in its own frame for <see cref="TetherWrap"/>. World pixels throughout.
+    /// The rope between a cursor and what it holds (UC-T8, UC-T33; ported from Cursory's <c>RoomState</c>
+    /// <c>LeashAndReport</c>, <c>SegmentRectEntry</c> and the corner lists): the leash that holds a point within a
+    /// length of the rope's contact, the length a rope has already used up round the corners it has caught, and a
+    /// body's corners and boxes in its own frame for <see cref="TetherWrap"/>. World pixels throughout.
     /// </summary>
     public static class TetherGeometry
     {
         private const float Tiny = 1e-6f;
 
+        /// <summary>The shortest free stretch a rope keeps between its contact and the cursor, however much it has wrapped.</summary>
+        public const float MinFreeLengthPx = 4f;
+
         /// <summary>
         /// Holds (<paramref name="x"/>, <paramref name="y"/>) at or inside <paramref name="maxLength"/> of the contact
         /// (<paramref name="contactX"/>, <paramref name="contactY"/>): a point past it slides back along the rope to
-        /// the leash end, which is exactly where a pull saturates. A point inside comes back unchanged.
+        /// the rope's end. A point inside comes back unchanged.
         /// </summary>
-        public static (float X, float Y) Leash(float contactX, float contactY, float x, float y, float maxLength = Tuning.MaxPullPx)
+        public static (float X, float Y) Leash(float contactX, float contactY, float x, float y, float maxLength = Tuning.RopeLengthPx)
         {
             var dx = x - contactX;
             var dy = y - contactY;
@@ -47,17 +50,31 @@ namespace Unity.Cursory.Core
             return (contactX + dx / len * maxLength, contactY + dy / len * maxLength);
         }
 
-        /// <summary>
-        /// A grab's reported pull in mass units: the rope's length over <see cref="Tuning.MaxPullPx"/>, saturated, times
-        /// one grab's ceiling (<see cref="Tuning.SingleGrabMaxMass"/>), so it reads straight against a body's Mass.
-        /// </summary>
-        public static float PullMass(float contactX, float contactY, float x, float y)
+        /// <summary>The length of the polyline through <paramref name="points"/> (0 for fewer than two).</summary>
+        /// <exception cref="ArgumentNullException"><paramref name="points"/> is null.</exception>
+        public static float PathLength(IReadOnlyList<(float X, float Y)> points)
         {
-            var dx = x - contactX;
-            var dy = y - contactY;
-            var frac = (float)Math.Sqrt(dx * dx + dy * dy) / Tuning.MaxPullPx;
-            if (frac > 1f) frac = 1f;
-            return Tuning.SingleGrabMaxMass * frac;
+            if (points == null) throw new ArgumentNullException(nameof(points));
+            var total = 0f;
+            for (var i = 1; i < points.Count; i++)
+            {
+                var dx = points[i].X - points[i - 1].X;
+                var dy = points[i].Y - points[i - 1].Y;
+                total += (float)Math.Sqrt(dx * dx + dy * dy);
+            }
+
+            return total;
+        }
+
+        /// <summary>
+        /// How much of a <paramref name="ropeLength"/> rope is left between its contact and the cursor once it has run
+        /// along <paramref name="chain"/> (the anchor, then every corner it has caught): the rope's length less the chain's,
+        /// never below <see cref="MinFreeLengthPx"/>.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="chain"/> is null.</exception>
+        public static float FreeLength(IReadOnlyList<(float X, float Y)> chain, float ropeLength = Tuning.RopeLengthPx)
+        {
+            return Math.Max(MinFreeLengthPx, ropeLength - PathLength(chain));
         }
 
         /// <summary>

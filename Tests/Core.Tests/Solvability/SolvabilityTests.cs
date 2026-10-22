@@ -79,8 +79,10 @@ namespace Unity.Cursory.Core.Tests.Solvability
             Assert.That(room.Grab("u2", shape.Id, shape.X + 250, shape.Y), Is.True);
             for (var i = 0; i < 1500; i++)
             {
-                room.SetCursor("u1", goal.X, goal.Y);
-                room.SetCursor("u2", goal.X, goal.Y);
+                var (sx, sy) = room.Position(shape.Id);
+                var (px, py) = Lead(sx, sy, goal.X, goal.Y);
+                room.SetCursor("u1", px, py);
+                room.SetCursor("u2", px, py);
                 room.Step();
             }
 
@@ -142,6 +144,23 @@ namespace Unity.Cursory.Core.Tests.Solvability
             Assert.That(Moved(mass: 3.2f, cursors: 2), Is.False, "two cursors do not move 3.2");
         }
 
+        /// <summary>UC-T33: a slack rope pulls nothing; the pull starts once the pointer is past the rope's length.</summary>
+        [Test]
+        public void Harness_pulls_only_through_a_taut_rope()
+        {
+            var level = new LevelData { Blocks = { new Block { Id = "b", X = 5000, Y = 5000, W = 200, H = 200, Mass = 1.0f } } };
+            var slack = new PullRoom(level);
+            slack.Grab("u", "b", 5100, 5000);
+            for (var i = 0; i < 60; i++)
+            {
+                slack.SetCursor("u", 5100 + Tuning.RopeLengthPx - 1f, 5000);
+                slack.Step();
+            }
+
+            Assert.That(slack.Position("b"), Is.EqualTo((5000f, 5000f)), "a pointer inside the rope's reach pulls nothing");
+            Assert.That(Moved(mass: 1.0f, cursors: 1), Is.True, "past it, the full pull");
+        }
+
         private static bool Moved(float mass, int cursors)
         {
             var level = new LevelData
@@ -173,12 +192,24 @@ namespace Unity.Cursory.Core.Tests.Solvability
                     var i = Math.Min(progress[user], route.Length - 1);
                     var (wx, wy) = route[i];
                     if (i < route.Length - 1 && Dist(bx, by, wx, wy) < 250) progress[user] = i + 1;
-                    room.SetCursor(user, wx, wy);
+                    var (px, py) = Lead(bx, by, wx, wy);
+                    room.SetCursor(user, px, py);
                 }
                 room.Step();
                 if (room.AllGoalsSolved()) return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Where a player points to bring a body at (<paramref name="bx"/>, <paramref name="by"/>) to (<paramref name="tx"/>,
+        /// <paramref name="ty"/>): a rope's length beyond it (UC-T33: the cursor pulls from the far end of its rope).
+        /// </summary>
+        private static (float X, float Y) Lead(float bx, float by, float tx, float ty)
+        {
+            var d = Dist(bx, by, tx, ty);
+            if (d < 1f) return (tx, ty);
+            return (tx + (tx - bx) / d * Tuning.RopeLengthPx, ty + (ty - by) / d * Tuning.RopeLengthPx);
         }
 
         private static float Dist(float ax, float ay, float bx, float by) =>

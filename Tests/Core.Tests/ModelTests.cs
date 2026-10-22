@@ -10,16 +10,34 @@ namespace Unity.Cursory.Core.Tests
         public void Cursory_feel_constants_are_kept()
         {
             Assert.That(Tuning.GrabMaxForce, Is.EqualTo(60f));
-            Assert.That(Tuning.GrabFrequency, Is.EqualTo(5f));
-            Assert.That(Tuning.GrabDamping, Is.EqualTo(0.7f));
             Assert.That(Tuning.ForcePerMass, Is.EqualTo(40f));
             Assert.That(Tuning.InertiaKgPerMass, Is.EqualTo(5f));
             Assert.That(Tuning.FrictionTorqueScale, Is.EqualTo(1.2f));
             Assert.That(Tuning.LinearDamping, Is.EqualTo(1.5f));
             Assert.That(Tuning.AngularDamping, Is.EqualTo(2.0f));
-            Assert.That(Tuning.MaxPullPx, Is.EqualTo(300f));
+            Assert.That(Tuning.RopeLengthPx, Is.EqualTo(300f));
             Assert.That(Tuning.CursorRadius, Is.EqualTo(10f));
             Assert.That(Tuning.WireSnapRadius, Is.EqualTo(90f));
+        }
+
+        [Test]
+        public void The_cursor_is_a_light_body_on_a_capped_spring()
+        {
+            Assert.That(Tuning.CursorMassKg, Is.EqualTo(0.1f));
+            Assert.That(Tuning.CursorFrequency, Is.EqualTo(6f));
+            Assert.That(Tuning.CursorDamping, Is.EqualTo(1f));
+            Assert.That(Tuning.CursorLinearDamping, Is.EqualTo(30f));
+            Assert.That(Tuning.CursorStiffness, Is.EqualTo(0.1f * (12f * (float)Math.PI) * (12f * (float)Math.PI)).Within(1e-3f));
+            Assert.That(Tuning.CursorSaturationPx, Is.InRange(30f, 60f), "the pull caps a short way past the rope's end");
+        }
+
+        [TestCase(-10f, 0f)]
+        [TestCase(0f, 0f)]
+        [TestCase(10f, 14.21f)]
+        [TestCase(1000f, 60f)]
+        public void Cursor_pull_grows_with_the_stretch_up_to_the_cap(float stretchPx, float newtons)
+        {
+            Assert.That(Tuning.CursorPull(stretchPx), Is.EqualTo(newtons).Within(0.01f));
         }
 
         [Test]

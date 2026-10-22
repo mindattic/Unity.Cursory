@@ -94,7 +94,7 @@ namespace Unity.Cursory.Tests
             onClient.Grab(blockId, blockX + 50f, OriginY);
             yield return WaitForConditionOrTimeOut(() => onServer.Held == GrabKind.Block && Sim.World.Grabbers.Contains(_client.LocalClientId));
             AssertOnTimeout("the server never recorded the grab");
-            onClient.Move(new Vector2(blockX + 400f, OriginY));
+            onClient.Move(new Vector2(blockX + 900f, OriginY));   // well past the rope's end (UC-T33)
             yield return WaitForConditionOrTimeOut(() => Sim.World.Pose(blockId).X - blockX > 5f);
             AssertOnTimeout("the grab never moved the block");
         }

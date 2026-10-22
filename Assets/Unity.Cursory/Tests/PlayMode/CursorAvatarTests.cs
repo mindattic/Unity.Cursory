@@ -241,14 +241,14 @@ namespace Unity.Cursory.Tests
             me.Grab(BlockId, OriginX + 60f, OriginY);
             Assert.That(me.Held, Is.EqualTo(GrabKind.Block), "a host's own intent is handled locally, at once");
             me.Move(new Vector2(OriginX + 300f, OriginY));
-            Assert.That(me.Position, Is.EqualTo(new Vector2(OriginX + 300f, OriginY)));
+            Assert.That(me.Pointer, Is.EqualTo(new Vector2(OriginX + 300f, OriginY)), "the pointer at once; the cursor's body follows on the ticks (UC-T33)");
             me.Release();
             Assert.That(me.Held, Is.EqualTo(GrabKind.None));
             Assert.That(Sim.World.TryGetGrab(m_ServerNetworkManager.LocalClientId, out _, out _), Is.False);
         }
 
         [UnityTest]
-        public IEnumerator Move_ReplicatesPositionToEveryPeer()
+        public IEnumerator Move_ReplicatesPointerAndCursorToEveryPeer()
         {
             yield return StartAndJoin();
             CursorAvatar onClient = null;
@@ -258,10 +258,12 @@ namespace Unity.Cursory.Tests
 
             onClient.Move(new Vector2(12f, -34f));
 
-            yield return WaitForConditionOrTimeOut(() => onHostsCopy.Position == new Vector2(12f, -34f));
-            AssertOnTimeout("Move never replicated to the host's copy (" + onHostsCopy.Position + ")");
-            yield return WaitForConditionOrTimeOut(() => onClient.Position == new Vector2(12f, -34f));
+            yield return WaitForConditionOrTimeOut(() => onHostsCopy.Pointer == new Vector2(12f, -34f));
+            AssertOnTimeout("Move never replicated to the host's copy (" + onHostsCopy.Pointer + ")");
+            yield return WaitForConditionOrTimeOut(() => onClient.Pointer == new Vector2(12f, -34f));
             AssertOnTimeout("Move never replicated back to the owner's own copy");
+            yield return WaitForConditionOrTimeOut(() => Vector2.Distance(onClient.Position, new Vector2(12f, -34f)) < 2f);
+            AssertOnTimeout("the cursor's body never followed its pointer (" + onClient.Position + ")");
         }
 
         [UnityTest]
@@ -278,7 +280,7 @@ namespace Unity.Cursory.Tests
             yield return WaitForConditionOrTimeOut(() => Sim.World.TryGetGrab(_client.LocalClientId, out _, out _));
             AssertOnTimeout("the server never recorded the grab");
 
-            onClient.Move(new Vector2(OriginX + 400f, OriginY));
+            onClient.Move(new Vector2(OriginX + 900f, OriginY));   // well past the rope's end: a full pull (UC-T33)
 
             ulong blockObjectId = BlockNetworkObjectId;
             NetworkObject clientCopy = null;

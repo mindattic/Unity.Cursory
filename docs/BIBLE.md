@@ -4,7 +4,7 @@ project: Unity.Cursory
 code: UC
 layer: bible
 status: living
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # Unity.Cursory — Project Bible
@@ -28,16 +28,21 @@ through [MindAttic.Unity.Multiplayer](https://github.com/mindattic/MindAttic.Uni
 - **Wordless co-op.** No chat. A whistle (a coloured ripple and a per-player tone) is the whole vocabulary.
 - **Two topologies, one game.** Host from a player's machine or join a headless dedicated server, by
   IP:port or a join code. The topology is configuration, not game code.
-- **Server-authoritative, latency-forgiving.** Grabs are soft, force-capped joints, so latency softens
-  the feel instead of breaking it.
+- **Server-authoritative, latency-forgiving.** A cursor is a light body on a soft, force-capped spring toward
+  the player's pointer, and a grab is a rope from it, so latency softens the feel instead of breaking it.
+- **Real ropes, real leverage** (UC-T33). The tether is a physical rope with a maximum length from the
+  player's cursor to anywhere on a body's rim; it wraps the body's corners, carries tension both ways (a
+  load heavier than your pull drags your cursor toward it) and turns what it pulls round a corner. Two
+  players pulling opposite ends turn a bar that one player can't.
 
 ## 3. What it is NOT {#UC-§3}
 - **NOT client-authoritative.** A client says "my cursor is at (x, y)" and "I grab / release / whistle /
   vote"; the server decides what that does ([UC-LAW-1](#UC-LAW-1)).
 - **NOT a chat or social app.** There is no text channel.
 - **NOT a hand-rolled physics toy.** Bodies are real Physics2D rigid bodies: ground friction is a
-  `FrictionJoint2D` and a grab is a force-capped `TargetJoint2D`, so cooperative drag, pivots and
-  torque come out of the solver.
+  `FrictionJoint2D`, each cursor is a light `Rigidbody2D` pulled by a force-capped `TargetJoint2D`, and a
+  grab is a max-length `DistanceJoint2D` rope from the cursor to the body, so cooperative drag, tug of war,
+  pivots and torque come out of the solver.
 - **NOT carrying Cursory's dead types.** `SwitchTile`, `Door` and `ShapeAttachment` are not ported.
 - **NOT using Cursory's accounts.** The player's name and colour come from the MindAttic.Unity profile
   (UC-T12), so Cursory's cookie auth laws (CUR-LAW-5, -8, -9) have no counterpart here.
@@ -84,11 +89,14 @@ collision, tether and goal resolution run on the server (host or dedicated); cli
 what the server replicates, so every client sees the same world.
 
 ### UC-LAW-2 — Mass is the one legible dial {#UC-LAW-2}
-*Ports CUR-LAW-2.* A body moves exactly when the pulls on it sum past its printed `Mass`. One grab tops
-out at 1.5 mass units (grab force 60 ÷ 40 per unit of Mass), so anything heavier needs cooperating cursors. The Physics2D mapping that keeps
-this true (from the RFC): grab `TargetJoint2D` maxForce 60, frequency 5, damping 0.7; ground
-`FrictionJoint2D` maxForce `Mass × 40`, maxTorque `× 1.2`; `rb.mass = Mass × 5`; linear damping 1.5,
-angular 2.0. Level masses stay clear of the 1.5 and 3.0 thresholds. A tuning change that breaks
+*Ports CUR-LAW-2.* A body moves exactly when the pulls on it sum past its printed `Mass`. One player's
+pull tops out at 1.5 mass units (pull strength 60 N ÷ 40 per unit of Mass), so anything heavier needs
+cooperating cursors. The Physics2D mapping that keeps this true: ground `FrictionJoint2D` maxForce
+`Mass × 40`, maxTorque `× 1.2`; `rb.mass = Mass × 5`; linear damping 1.5, angular 2.0. Since UC-T33 the
+pull reaches a body only through its rope: the cursor (0.1 kg, linear damping 30, no collider) is pulled
+toward the pointer by a `TargetJoint2D` with maxForce 60 (frequency 6, damping 1, so it caps about 42 px
+past where the cursor is held), and a taut rope carries that 60 N to the body; the thresholds are
+unchanged. Level masses stay clear of the 1.5 and 3.0 thresholds. A tuning change that breaks
 "one cursor moves 1.0 but not 2.0; two move 2.0" is a regression, whatever it looks like.
 
 ### UC-LAW-3 — World pixels in data and on the wire; metres in the engine {#UC-LAW-3}
@@ -229,7 +237,8 @@ interface so a compact snapshot can replace them without touching gameplay code.
   and the geometry resend. Verified by the PlayMode `LevelReloadTests` (a reset mid-grab and a level switch
   mid-grab, host + client).
 
-- ✅ **Tethers and per-player settings** (UC-T8): each player's own `[Synced]` `SegmentedTether` and
+- ✅ **Tethers and per-player settings** (UC-T8; its grab joint, leash and segmented-tether switch were
+  replaced by UC-T33's physical cursor and rope, below): each player's own `[Synced]` `SegmentedTether` and
   `CursorCollision` on their `CursorAvatar` (both off by default), set by the owner through the `[ToServer]`
   `SetSegmentedTether(bool)` / `SetCursorCollision(bool)` (the in-game menu's switches call these), replacing Cursory's
   room-wide booleans that every player's toggle overwrote. The server honours each cursor's own choice: with
@@ -299,6 +308,33 @@ interface so a compact snapshot can replace them without touching gameplay code.
   `mp-host.json`'s `bots`/`scenario`, and the reusable nightly `game-smoke.yml`. Verified by the PlayMode
   `BotEndToEndTests` on the library's `NetBotTest`, and by `mp-host game smoke` under Docker Compose.
 
+- ✅ **Physical cursor and real rope** (UC-T33, replacing UC-T6/UC-T8's grab joint on the body): every player's
+  cursor is a server-simulated dynamic `Rigidbody2D` in `PhysicsWorld` (`Tuning.CursorMassKg` 0.1 kg, linear damping
+  30 so a free cursor tops out near 2000 px/s and a rope it snaps taut only nudges a heavy body, rotation frozen,
+  no collider, so it passes over bodies as in Cursory) pulled toward the pointer by a `TargetJoint2D` capped at the player's pull strength (`Tuning.GrabMaxForce` 60 N, `CursorFrequency` 6 Hz,
+  `CursorDamping` 1). `PhysicsWorld.MoveCursor` aims the spring, `Grab`/`GrabWall` tie the rope: a `DistanceJoint2D`
+  with `maxDistanceOnly` from the cursor to the rim anchor (anywhere on the rim, [UC-LAW-5](#UC-LAW-5); a corner grab
+  gives the most leverage), always on. Each tick (`Step`) `Core/Physics/TetherWrap` re-wraps the rope round the body's
+  corners for where the cursor is (a rope that would cut the body slides to the corner it can reach most nearly
+  toward the cursor, so a corner grab wraps the next corner along) and the joint is re-anchored on the last caught
+  corner with `Tuning.RopeLengthPx` (300) less the chain's length (`TetherGeometry.FreeLength`); after the step a
+  cursor the solver let drift past its rope's end is put back on it, so a rope never stretches past its length. A
+  slack rope pulls nothing; a taut one carries the spring's pull to the body and the body's weight back to the cursor,
+  so a load heavier than its pull drags the cursor toward it (tug of war) and a rope pulled round a corner turns the
+  body toward the player. `CursorAvatar` writes the `[Synced]` `Position` from the cursor's body after each tick and
+  the new `[Synced]` `Pointer` from `Move`; `WorldView` draws the cursor at `Position` and a faint ghost at the pointer
+  (your own at your hand). The UC-T8 leash, `SegmentedTether` and its pause-menu switch are gone (`PlayerSettingsItems`
+  keeps "Cursor collision", which now pushes the pointer out of walls and shapes). Bots and the solvability harness
+  point a rope's length past their waypoint (`BotPlan.CursorTarget`; `PullRoom` pulls only through a taut rope, by
+  `Tuning.CursorPull`), and L1-L14 keep their Masses. Verified by `dotnet test Core.slnx` (`TuningTests`,
+  `TetherGeometryTests`, `TetherWrapTests` with the corner-grab wrap, `SolvabilityTests` with
+  `Harness_pulls_only_through_a_taut_rope`, `BotPlanTests`) and the PlayMode suites `PhysicalCursorTests` (a free cursor
+  follows its pointer; a heavy block holds a lone cursor at its rope's end; tug of war drags the lone cursor; a corner
+  grab pulled round a corner spins the body clockwise toward the player; the rope never stretches past its length; one
+  player cannot turn a 280 × 40 Mass 2.0 bar into a 120 px hall in 10 s, two on opposite ends can), `HallBotTests` (the
+  same with bot clients on a dedicated server, on the library's `NetSessionTest`), `ServerPhysicsTests`,
+  `TetherPhysicsTests`, `TetherAvatarTests` and `BotEndToEndTests`.
+
 ## 7. Active frontier {#UC-§7}
 The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain, tracked in
 [USER_STORIES.md](USER_STORIES.md).
@@ -306,7 +342,10 @@ The Unity.Cursory tickets UC-T7 to UC-T15 in the library's RFC 0001 ticket chain
 ## 8. Glossary {#UC-§8}
 - **World pixel** — Cursory's unit; 100 to a metre ([UC-LAW-3](#UC-LAW-3)).
 - **Mass** — a body's printed weight and its move threshold ([UC-LAW-2](#UC-LAW-2)).
-- **Grab / tether** — a force-capped `TargetJoint2D` from a body's edge anchor to the cursor.
+- **Cursor** — a player's light physical body, pulled toward their pointer by a capped spring (UC-T33).
+- **Pointer** — where the player points; the cursor's spring pulls toward it. Drawn as a faint ghost.
+- **Grab / tether / rope** — a max-length `DistanceJoint2D` from the cursor to a body's rim anchor, wrapping the
+  body's corners (UC-T33).
 - **Tick** — one 1/30 s server step.
 - **Geometry** — the static walls and labels sent once per level ([UC-LAW-4](#UC-LAW-4)).
 - **Whistle** — a click ping: a coloured ripple and a per-player tone; the only comms.

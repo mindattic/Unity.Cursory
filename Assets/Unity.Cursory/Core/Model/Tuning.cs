@@ -3,19 +3,36 @@ using System;
 namespace Unity.Cursory.Core
 {
     /// <summary>
-    /// Cursory's feel constants (Cursory.Core/Services/RoomState.cs), kept unchanged so the port plays
-    /// the same, and the Mass rules built on them (BIBLE UC-LAW-2). Lengths are world pixels.
+    /// Cursory's feel constants (Cursory.Core/Services/RoomState.cs) and the Mass rules built on them (BIBLE
+    /// UC-LAW-2), plus the physical cursor and rope of UC-T33. Lengths are world pixels.
     /// </summary>
+    /// <remarks>
+    /// Since UC-T33 a player's pull is not a joint on the body: each cursor is a light dynamic body pulled toward the
+    /// player's pointer by a spring capped at <see cref="GrabMaxForce"/>, and a rope of at most
+    /// <see cref="RopeLengthPx"/> ties it to what it holds. A taut rope carries the cursor's pull to the body, so
+    /// one cursor still pulls with at most <see cref="GrabMaxForce"/> and the Mass thresholds are unchanged.
+    /// </remarks>
     public static class Tuning
     {
-        /// <summary>Force ceiling of one grab, in newtons: the <c>TargetJoint2D</c> maxForce.</summary>
+        /// <summary>One player's pull strength, in newtons: the cap on the spring (<c>TargetJoint2D</c> maxForce) that pulls
+        /// their cursor toward their pointer, and so the most tension their rope can carry.</summary>
         public const float GrabMaxForce = 60f;
 
-        /// <summary>Grab joint stiffness in Hz: the <c>TargetJoint2D</c> frequency.</summary>
-        public const float GrabFrequency = 5f;
+        /// <summary>The cursor's physical mass, in kilograms: light, so it moves like a cursor when free and is dragged
+        /// along by anything heavier than its pull.</summary>
+        public const float CursorMassKg = 0.1f;
 
-        /// <summary>Grab joint damping ratio: the <c>TargetJoint2D</c> dampingRatio.</summary>
-        public const float GrabDamping = 0.7f;
+        /// <summary>The cursor spring's stiffness in Hz: the <c>TargetJoint2D</c> frequency on the cursor's body.</summary>
+        public const float CursorFrequency = 6f;
+
+        /// <summary>The cursor spring's damping ratio (critically damped: it settles on the pointer without overshoot).</summary>
+        public const float CursorDamping = 1f;
+
+        /// <summary>
+        /// Linear damping on the cursor's body: heavy, so a free cursor tops out near 20 m/s (2000 px/s) and a rope it
+        /// snaps taut gives a heavy body no more than a nudge its friction soaks up.
+        /// </summary>
+        public const float CursorLinearDamping = 30f;
 
         /// <summary>Newtons per mass unit. A body's ground friction is Mass times this, and a pull's
         /// strength in mass units is its force divided by this, so a body moves exactly when the pulls
@@ -38,8 +55,35 @@ namespace Unity.Cursory.Core
         /// lighter than this; heavier bodies need cooperating cursors.</summary>
         public const float SingleGrabMaxMass = GrabMaxForce / ForcePerMass;
 
-        /// <summary>Tether length at which a pull saturates, and the leash length.</summary>
-        public const float MaxPullPx = 300f;
+        /// <summary>A rope's maximum length (anchor, round any corners it has caught, to the cursor).</summary>
+        public const float RopeLengthPx = 300f;
+
+        /// <summary>
+        /// How far past a taut rope's end the pointer has to be for the cursor spring to pull at its cap: the spring's
+        /// stiffness is <see cref="CursorMassKg"/> × (2π <see cref="CursorFrequency"/>)², so it saturates at
+        /// <see cref="GrabMaxForce"/> over that (about 42 px).
+        /// </summary>
+        public static float CursorSaturationPx => WorldUnits.ToPixels(GrabMaxForce / CursorStiffness);
+
+        /// <summary>The cursor spring's stiffness in newtons per metre.</summary>
+        public static float CursorStiffness
+        {
+            get
+            {
+                var omega = 2f * (float)Math.PI * CursorFrequency;
+                return CursorMassKg * omega * omega;
+            }
+        }
+
+        /// <summary>
+        /// The pull a cursor spring gives when the pointer is <paramref name="stretchPx"/> past where the cursor is held:
+        /// stiffness times the stretch, capped at <see cref="GrabMaxForce"/>. Never negative.
+        /// </summary>
+        public static float CursorPull(float stretchPx)
+        {
+            if (!(stretchPx > 0f)) return 0f;
+            return Math.Min(GrabMaxForce, CursorStiffness * WorldUnits.ToMeters(stretchPx));
+        }
 
         /// <summary>The cursor's collision radius when cursor collision is on.</summary>
         public const float CursorRadius = 10f;

@@ -22,7 +22,10 @@ namespace Unity.Cursory
     /// position and one-shot grab/release intents (<see cref="Move"/>, <see cref="Grab"/>, <see cref="GrabShape"/>,
     /// <see cref="GrabWall"/>, <see cref="GrabWireEnd"/>, <see cref="Release"/>); the server decides what that does
     /// against the current level's <see cref="PhysicsWorld"/> (via <see cref="ServerSimulation.For"/>) and
-    /// replicates the result. <see cref="Position"/> is the one thing every peer needs to draw this cursor.
+    /// replicates the result. Since UC-T33 the cursor is a physical body on the server: <see cref="Move"/> sets where
+    /// its spring pulls (<see cref="Pointer"/>, drawn as a faint ghost), and <see cref="Position"/> is where the body
+    /// actually is after each tick, the cursor every peer draws. Free, it follows the pointer like a cursor; holding
+    /// something, its rope can hold it back or drag it.
     /// </summary>
     /// <example>
     /// Driving a cursor from code (a bot, a test, a replay) is the same as driving it from input: find the
@@ -40,9 +43,9 @@ namespace Unity.Cursory
     /// blocks and shapes the same way); the two RPCs exist because the client already knows which kind of body it
     /// clicked (Cursory's own <c>TryAttach</c> / <c>TryAttachShape</c> split) and because the server checks the kind
     /// matches, so a stale client cannot grab a shape through <see cref="Grab"/> after a reset relabels an id.</para>
-    /// <para><see cref="GrabWall"/> lands the click on the wall's rim (UC-LAW-5) like any other grab, but a wall
-    /// never moves, so nothing is added to <see cref="PhysicsWorld"/>: holding one is bookkeeping for a future
-    /// tether (UC-T8). <see cref="GrabWireEnd"/> picks up a circuit wire's end through the session's
+    /// <para><see cref="GrabWall"/> lands the click on the wall's rim (UC-LAW-5) like any other grab; a wall never
+    /// moves, so its rope (<see cref="PhysicsWorld.GrabWall"/>) only holds the cursor within the rope's length of it.
+    /// <see cref="GrabWireEnd"/> picks up a circuit wire's end through the session's
     /// <see cref="ServerSimulation.Progress"/> (UC-T9): it unplugs, follows <see cref="Move"/>, and on
     /// <see cref="Release"/> snaps onto a terminal within <see cref="Tuning.WireSnapRadius"/>.</para>
     /// <para>Static geometry (BIBLE UC-LAW-4) rides on this entity too: the server calls
@@ -105,8 +108,8 @@ namespace Unity.Cursory
         public string HeldId => _heldId;
 
         /// <summary>
-        /// Server side: for a <see cref="GrabKind.Wall"/> hold, where the grab landed on the wall's rim (UC-LAW-5,
-        /// body-local world pixels, as <see cref="PhysicsWorld.WallAnchor"/> returns it); null otherwise (a
+        /// Server side: for a <see cref="GrabKind.Wall"/> hold, where the rope is tied on the wall's rim (UC-LAW-5,
+        /// wall-local world pixels, as <see cref="PhysicsWorld.WallAnchor"/> returns it); null otherwise (a
         /// block/shape anchor is <see cref="PhysicsWorld.TryGetGrab"/>'s job, and a wire end has none).
         /// </summary>
         public Vector2? HeldAnchor => _heldAnchor;
@@ -120,7 +123,7 @@ namespace Unity.Cursory
             get
             {
                 ServerSimulation sim = ServerSimulation.For(Session);
-                return sim != null ? sim.World : null;
+                return sim != null && sim.World != null && !sim.World.IsDisposed ? sim.World : null;
             }
         }
 
@@ -168,8 +171,14 @@ namespace Unity.Cursory
 
         // synced state ---------------------------------------------------------------------------------------------
 
-        /// <summary>Where every peer draws this cursor, in world pixels. The server writes it from <see cref="Move"/>.</summary>
+        /// <summary>
+        /// Where every peer draws this cursor, in world pixels: its physical body on the server after each tick (UC-T33);
+        /// the raw <see cref="Move"/> when the server runs no world.
+        /// </summary>
         [Synced] private Vector2 _position;
+
+        /// <summary>Where this player points, in world pixels (their <see cref="Move"/>, after cursor collision): where the cursor's spring pulls, drawn as a ghost.</summary>
+        [Synced] private Vector2 _pointer;
 
         /// <summary>The most recently received <see cref="ReceiveGeometry"/>, on every peer; null before the first one arrives.</summary>
         public LevelGeometrySnapshot Geometry { get; private set; }
@@ -200,6 +209,7 @@ namespace Unity.Cursory
                 return;
             }
 
+            FollowSimulation();   // UC-T33: Position follows the cursor's body every tick
             ServerSimulation sim = ServerSimulation.For(session);
             if (sim != null && sim.Loader != null)
             {
@@ -225,6 +235,7 @@ namespace Unity.Cursory
             if (IsServer)
             {
                 ReleaseHeld();
+                World?.RemoveCursor(OwnerClientId);
             }
         }
 
@@ -235,9 +246,13 @@ namespace Unity.Cursory
                 return;
             }
 
-            worldPos = ConstrainCursor(worldPos);   // UC-T8: this player's cursor collision, then the leash
-            Position = worldPos;
-            World?.MoveCursor(OwnerClientId, worldPos.x, worldPos.y);
+            worldPos = ConstrainPointer(worldPos);   // UC-T8: this player's cursor collision
+            Pointer = worldPos;
+            _pointerKnown = true;
+            FollowSimulation();
+            PhysicsWorld world = World;
+            if (world != null) world.MoveCursor(OwnerClientId, worldPos.x, worldPos.y);   // the body follows on the next tick
+            else Position = worldPos;
             if (_heldKind == GrabKind.WireEnd) Progress?.MoveCursor(OwnerClientId, worldPos.x, worldPos.y);
         }
 
@@ -279,7 +294,10 @@ namespace Unity.Cursory
 
             var (x, y) = world.WallAnchor(wallId, clickX, clickY);
             ReleaseHeld();
-            SetHeld(GrabKind.Wall, wallId, new Vector2(x, y));
+            if (world.GrabWall(OwnerClientId, wallId, clickX, clickY))
+            {
+                SetHeld(GrabKind.Wall, wallId, new Vector2(x, y));
+            }
         }
 
         private void OnGrabWireEnd(string wireId, bool endA, NetSender sender)
@@ -344,7 +362,7 @@ namespace Unity.Cursory
 
         private void ReleaseHeld()
         {
-            if (_heldKind == GrabKind.Block || _heldKind == GrabKind.Shape)
+            if (_heldKind == GrabKind.Block || _heldKind == GrabKind.Shape || _heldKind == GrabKind.Wall)
             {
                 World?.Release(OwnerClientId);
             }

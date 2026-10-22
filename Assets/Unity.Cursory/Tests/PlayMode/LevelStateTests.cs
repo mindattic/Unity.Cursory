@@ -63,9 +63,9 @@ namespace Unity.Cursory.Tests
             _state.LevelWon += won.Add;
             Assert.That(progress.IsLevelSolved, Is.False);
 
-            // Grab the right edge and pull well past the pad's centre.
+            // Grab the right edge and point a rope's length past the pad's centre (UC-T33: the cursor pulls from the rope's end).
             Assert.That(_sim.World.Grab(1, "b", 1050f, 1000f), Is.True);
-            _sim.World.MoveCursor(1, 1450f, 1000f);
+            _sim.World.MoveCursor(1, 1450f + Tuning.RopeLengthPx, 1000f);
             var ticks = 0;
             while (!progress.IsGoalSolved("g") && ticks < 4 * SimulationRate.TicksPerSecond)
             {
@@ -209,7 +209,7 @@ namespace Unity.Cursory.Tests
 
             // Drag b onto its pad with a real grab; the server's ticks decide when it lands.
             Assert.That(_sim.World.Grab(1, "b", 3050f, 1000f), Is.True);
-            _sim.World.MoveCursor(1, 3450f, 1000f);
+            _sim.World.MoveCursor(1, 3450f + Tuning.RopeLengthPx, 1000f);
             for (int i = 0; i < 4 * SimulationRate.TicksPerSecond && !_state.Progress.IsLevelSolved; i++) _clock.Step(1);
             Assert.That(_state.Progress.IsLevelSolved, Is.True, "the server saw the win");
 

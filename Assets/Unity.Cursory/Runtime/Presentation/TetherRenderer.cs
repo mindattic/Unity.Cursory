@@ -7,9 +7,9 @@ using UnityEngine;
 namespace Unity.Cursory
 {
     /// <summary>
-    /// Presentation (UC-T8): draws a cursor's rope with a <see cref="LineRenderer"/> in the player's colour, from
-    /// <see cref="CursorAvatar.TryGetRope"/>: the anchor, every corner a segmented tether has caught, then the
-    /// cursor, held within <see cref="Tuning.MaxPullPx"/> of the contact. Hidden while the cursor holds nothing.
+    /// Presentation (UC-T8, UC-T33): draws a cursor's rope with a <see cref="LineRenderer"/> in the player's colour, from
+    /// <see cref="CursorAvatar.TryGetRope"/>: the anchor, every corner the rope has caught, then the cursor's body (never
+    /// more than <see cref="Tuning.RopeLengthPx"/> along). Hidden while the cursor holds nothing.
     /// </summary>
     /// <remarks>
     /// Every cursor spawned on a peer that shows the game (a host or a client, never a dedicated server) gets one

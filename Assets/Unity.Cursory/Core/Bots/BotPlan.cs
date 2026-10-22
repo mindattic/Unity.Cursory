@@ -34,6 +34,8 @@ namespace Unity.Cursory.Core
 
         private readonly (float X, float Y)[] _route;
         private int _progress;
+        private float _headingX;
+        private float _headingY;
 
         private BotPlan(Block block, BlockGoal goal, (float X, float Y)[] route)
         {
@@ -42,6 +44,7 @@ namespace Unity.Cursory.Core
             _route = route;
             float dx = route[0].X - block.X;
             EdgeSign = dx < 0f ? -1f : 1f;
+            _headingX = EdgeSign;
         }
 
         /// <summary>The block both bots move.</summary>
@@ -133,9 +136,11 @@ namespace Unity.Cursory.Core
         }
 
         /// <summary>
-        /// Where <paramref name="role"/>'s cursor goes this tick, with the block's centre at (<paramref name="blockX"/>,
-        /// <paramref name="blockY"/>): the current waypoint plus the role's anchor offset, so both grabs pull the same
-        /// way. Moves on to the next waypoint once the block is within <see cref="WaypointReach"/> of this one.
+        /// Where <paramref name="role"/>'s pointer goes this tick, with the block's centre at (<paramref name="blockX"/>,
+        /// <paramref name="blockY"/>): the current waypoint plus the role's anchor offset, so both grabs pull the same way,
+        /// led a rope's length (<see cref="Tuning.RopeLengthPx"/>) further on toward the waypoint, since the cursor pulls
+        /// from the far end of its rope (UC-T33). The pull fades as the block closes on the waypoint, so it comes to rest
+        /// on it. Moves on to the next waypoint once the block is within <see cref="WaypointReach"/> of this one.
         /// </summary>
         public (float X, float Y) CursorTarget(BotRole role, float blockX, float blockY)
         {
@@ -146,7 +151,21 @@ namespace Unity.Cursory.Core
 
             var (wx, wy) = _route[_progress];
             var (ox, oy) = AnchorOffset(role);
-            return (wx + ox, wy + oy);
+            var (lx, ly) = Lead(blockX, blockY, wx, wy);
+            return (wx + ox + lx, wy + oy + ly);
+        }
+
+        /// <summary>A rope's length toward (<paramref name="toX"/>, <paramref name="toY"/>) from the block, keeping the last heading once the block is on it.</summary>
+        private (float X, float Y) Lead(float blockX, float blockY, float toX, float toY)
+        {
+            var d = Distance(blockX, blockY, toX, toY);
+            if (d > 1f)
+            {
+                _headingX = (toX - blockX) / d;
+                _headingY = (toY - blockY) / d;
+            }
+
+            return (_headingX * Tuning.RopeLengthPx, _headingY * Tuning.RopeLengthPx);
         }
 
         /// <summary>True when a block centred at (<paramref name="blockX"/>, <paramref name="blockY"/>) solves the goal.</summary>

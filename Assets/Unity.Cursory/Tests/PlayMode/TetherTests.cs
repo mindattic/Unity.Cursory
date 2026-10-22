@@ -11,7 +11,10 @@ using UnityEngine.TestTools;
 
 namespace Unity.Cursory.Tests
 {
-    /// <summary>UC-T8: <see cref="PhysicsWorld"/>'s side of the tether: the rope's contact re-anchors the grab, and cursor collision.</summary>
+    /// <summary>
+    /// UC-T8, UC-T33: <see cref="PhysicsWorld"/>'s side of the rope: its wrap re-anchors the rope's joint on the caught
+    /// corner with the length the corners leave, and cursor collision.
+    /// </summary>
     public class TetherPhysicsTests
     {
         private const string BlockId = "b";
@@ -43,51 +46,78 @@ namespace Unity.Cursory.Tests
             Walls = new List<Wall> { new Wall { Id = "w", X = -1000f, Y = 0f, W = 50f, H = 400f } },
         };
 
+        /// <summary>Puts <see cref="Cursor"/>'s body at (<paramref name="x"/>, <paramref name="y"/>), as if it had got there, and re-wraps.</summary>
+        private void PutCursorAt(float x, float y)
+        {
+            _world.CursorBody(Cursor).position = new Vector2(WorldUnits.ToMeters(x), WorldUnits.ToMeters(y));
+            _world.RefreshRopes();
+        }
+
         [Test]
-        public void SegmentedTether_ReanchorsTheGrabOnTheCaughtCorner()
+        public void TheRopeWraps_AndItsJointPullsTheCaughtCorner()
         {
             _world = new PhysicsWorld(Level(), "UC-T8 world");
             Assert.That(_world.Grab(Cursor, BlockId, 60f, 0f), Is.True);
-            Assert.That(_world.MoveCursor(Cursor, -230f, -30f), Is.True);   // round behind the block
+            PutCursorAt(-130f, -80f);   // round behind the block
             var chain = new List<(float X, float Y)>();
 
-            Assert.That(_world.UpdateTether(Cursor, true, chain), Is.True);
+            Assert.That(_world.TryGetRope(Cursor, chain), Is.True);
 
             Assert.That(chain, Has.Count.EqualTo(2));
             Assert.That(chain[0].X, Is.EqualTo(50f).Within(1e-3f));
             Assert.That(chain[1].X, Is.EqualTo(50f).Within(1e-3f));
             Assert.That(chain[1].Y, Is.EqualTo(-50f).Within(1e-3f), "caught on the bottom-right corner");
-            var joint = _world.Rigidbody(BlockId).GetComponent<TargetJoint2D>();
-            Assert.That(joint.anchor.x, Is.EqualTo(0.5f).Within(1e-5f));
-            Assert.That(joint.anchor.y, Is.EqualTo(-0.5f).Within(1e-5f), "the grab now pulls the corner");
+            var rope = _world.CursorBody(Cursor).GetComponent<DistanceJoint2D>();
+            Assert.That(rope.connectedBody, Is.SameAs(_world.Rigidbody(BlockId)));
+            Assert.That(rope.connectedAnchor.x, Is.EqualTo(0.5f).Within(1e-5f));
+            Assert.That(rope.connectedAnchor.y, Is.EqualTo(-0.5f).Within(1e-5f), "the rope now pulls the corner");
+            Assert.That(rope.distance, Is.EqualTo(WorldUnits.ToMeters(Tuning.RopeLengthPx - 50f)).Within(1e-5f),
+                "the 50 px down the edge to the corner is rope no longer free");
             Assert.That(_world.TryGetGrab(Cursor, out _, out var anchor), Is.True);
             Assert.That(anchor, Is.EqualTo((50f, 0f)), "the grab's own rim anchor is unchanged");
         }
 
         [Test]
-        public void StraightTether_PullsOnTheRimAnchor()
+        public void AStraightRope_PullsOnTheRimAnchor()
         {
             _world = new PhysicsWorld(Level(), "UC-T8 world");
             _world.Grab(Cursor, BlockId, 60f, 0f);
-            _world.MoveCursor(Cursor, -230f, -30f);
-            _world.UpdateTether(Cursor, true);
+            PutCursorAt(-130f, -80f);
+            PutCursorAt(250f, 0f);   // straight out again: the corner lets go
             var chain = new List<(float X, float Y)>();
 
-            Assert.That(_world.UpdateTether(Cursor, false, chain), Is.True);
+            Assert.That(_world.TryGetRope(Cursor, chain), Is.True);
 
             Assert.That(chain, Has.Count.EqualTo(1), "a straight rope is just its anchor");
-            var joint = _world.Rigidbody(BlockId).GetComponent<TargetJoint2D>();
-            Assert.That(joint.anchor.x, Is.EqualTo(0.5f).Within(1e-5f));
-            Assert.That(joint.anchor.y, Is.EqualTo(0f).Within(1e-5f));
+            var rope = _world.CursorBody(Cursor).GetComponent<DistanceJoint2D>();
+            Assert.That(rope.connectedAnchor.x, Is.EqualTo(0.5f).Within(1e-5f));
+            Assert.That(rope.connectedAnchor.y, Is.EqualTo(0f).Within(1e-5f));
+            Assert.That(rope.maxDistanceOnly, Is.True, "a rope, not a rod: slack it pulls nothing");
+            Assert.That(rope.distance, Is.EqualTo(WorldUnits.ToMeters(Tuning.RopeLengthPx)).Within(1e-5f));
         }
 
         [Test]
-        public void UpdateTether_IsFalseWhenNothingIsHeld()
+        public void TryGetRope_IsFalseWhenNothingIsHeld()
         {
             _world = new PhysicsWorld(Level(), "UC-T8 world");
             var chain = new List<(float X, float Y)> { (1f, 1f) };
-            Assert.That(_world.UpdateTether(Cursor, true, chain), Is.False);
+            Assert.That(_world.TryGetRope(Cursor, chain), Is.False);
             Assert.That(chain, Is.Empty);
+            Assert.That(_world.RopeLength(Cursor), Is.EqualTo(-1f));
+        }
+
+        [Test]
+        public void Release_UntiesTheRope_ButKeepsTheCursor()
+        {
+            _world = new PhysicsWorld(Level(), "UC-T8 world");
+            _world.Grab(Cursor, BlockId, 60f, 0f);
+
+            Assert.That(_world.Release(Cursor), Is.True);
+
+            Assert.That(_world.TryGetGrab(Cursor, out _, out _), Is.False);
+            Assert.That(_world.HasCursor(Cursor), Is.True, "the cursor is free again, not gone");
+            Assert.That(_world.CursorBody(Cursor).GetComponent<DistanceJoint2D>().enabled, Is.False, "out of the very next step");
+            Assert.That(_world.Release(Cursor), Is.False);
         }
 
         [Test]
@@ -103,8 +133,8 @@ namespace Unity.Cursory.Tests
     }
 
     /// <summary>
-    /// UC-T8 over the network: a dedicated server and two clients, each choosing their own tether settings. The
-    /// bodies are Mass 2.0, which one cursor cannot move, so a rope's shape holds still while it is checked.
+    /// UC-T8, UC-T33 over the network: a dedicated server and two clients. The bodies are Mass 2.0, which one cursor
+    /// cannot move, so a rope's shape holds still while it is checked.
     /// </summary>
     public class TetherAvatarTests : CursorAvatarTestBase
     {
@@ -177,28 +207,25 @@ namespace Unity.Cursory.Tests
         }
 
         [UnityTest]
-        public IEnumerator Settings_AreEachPlayersOwn_AndEveryPeerSeesThem()
+        public IEnumerator CursorCollision_IsEachPlayersOwn_AndEveryPeerSeesIt()
         {
             yield return StartAndJoinBoth();
-            Assert.That(_onA.SegmentedTether || _onA.CursorCollision, Is.False, "both settings start off");
+            Assert.That(_onA.CursorCollision, Is.False, "off by default");
 
-            _onA.SetSegmentedTether(true);
             _onB.SetCursorCollision(true);
 
-            yield return WaitForConditionOrTimeOut(() => _aOnServer.SegmentedTether && _bOnServer.CursorCollision);
-            AssertOnTimeout("the server never took the settings");
+            yield return WaitForConditionOrTimeOut(() => _bOnServer.CursorCollision);
+            AssertOnTimeout("the server never took the setting");
             Assert.That(_aOnServer.CursorCollision, Is.False, "B's collision toggle is not A's");
-            Assert.That(_bOnServer.SegmentedTether, Is.False, "A's rope toggle is not B's");
 
-            CursorAvatar aOnB = null;
-            yield return WaitForAvatar(m_ClientNetworkManagers[1], _a.LocalClientId, x => aOnB = x);
-            yield return WaitForConditionOrTimeOut(() => aOnB.SegmentedTether && _onA.SegmentedTether && _onB.CursorCollision);
-            AssertOnTimeout("the settings never replicated to every peer");
+            CursorAvatar bOnA = null;
+            yield return WaitForAvatar(m_ClientNetworkManagers[0], _b.LocalClientId, x => bOnA = x);
+            yield return WaitForConditionOrTimeOut(() => bOnA.CursorCollision && _onB.CursorCollision);
+            AssertOnTimeout("the setting never replicated to every peer");
 
-            _onA.SetSegmentedTether(false);
-            yield return WaitForConditionOrTimeOut(() => !aOnB.SegmentedTether);
+            _onB.SetCursorCollision(false);
+            yield return WaitForConditionOrTimeOut(() => !bOnA.CursorCollision);
             AssertOnTimeout("turning it off never replicated");
-            Assert.That(_bOnServer.CursorCollision, Is.True, "and B's setting is untouched");
         }
 
         [UnityTest]
@@ -219,7 +246,7 @@ namespace Unity.Cursory.Tests
         }
 
         [UnityTest]
-        public IEnumerator CursorCollision_PushesOnlyThatPlayersCursorOutOfAWall()
+        public IEnumerator CursorCollision_PushesOnlyThatPlayersPointerOutOfAWall()
         {
             yield return StartAndJoinBoth();
             _onA.SetCursorCollision(true);
@@ -231,52 +258,64 @@ namespace Unity.Cursory.Tests
             _onB.Move(insideTheWall);
 
             var ejected = new Vector2(OriginX - 400f + 25f + Tuning.CursorRadius, OriginY);
-            yield return WaitForConditionOrTimeOut(() => _aOnServer.Position == ejected && _bOnServer.Position == insideTheWall);
-            AssertOnTimeout("A should rest on the wall's edge and B inside it (A " + _aOnServer.Position + ", B " + _bOnServer.Position + ")");
-            yield return WaitForConditionOrTimeOut(() => _onA.Position == ejected);
-            AssertOnTimeout("A's own client never saw its cursor pushed out");
+            yield return WaitForConditionOrTimeOut(() => _aOnServer.Pointer == ejected && _bOnServer.Pointer == insideTheWall);
+            AssertOnTimeout("A should point at the wall's edge and B inside it (A " + _aOnServer.Pointer + ", B " + _bOnServer.Pointer + ")");
+            yield return WaitForConditionOrTimeOut(() => _onA.Pointer == ejected && Vector2.Distance(_onA.Position, ejected) < 2f);
+            AssertOnTimeout("A's own client never saw its cursor settle outside the wall (" + _onA.Position + ")");
         }
 
+        /// <summary>UC-T33: the cursor is the server's body, following the pointer; every peer sees both.</summary>
         [UnityTest]
-        public IEnumerator SegmentedTether_WrapsOnlyThatPlayersRope()
+        public IEnumerator AFreeCursor_FollowsItsPointer_OnEveryPeer()
         {
             yield return StartAndJoinBoth();
-            _onA.SetSegmentedTether(true);
-            yield return WaitForConditionOrTimeOut(() => _aOnServer.SegmentedTether);
-            AssertOnTimeout("A's rope setting never reached the server");
+            CursorAvatar aOnB = null;
+            yield return WaitForAvatar(m_ClientNetworkManagers[1], _a.LocalClientId, x => aOnB = x);
+            var target = new Vector2(OriginX + 700f, OriginY + 300f);
 
-            // Both grab the middle of a right edge, then pull round behind the body, so a straight rope cuts it.
+            _onA.Move(target);
+
+            yield return WaitForConditionOrTimeOut(() => Vector2.Distance(aOnB.Position, target) < 2f && aOnB.Pointer == target);
+            AssertOnTimeout("B never saw A's cursor arrive at its pointer (" + aOnB.Position + ")");
+            Assert.That(Sim.World.TryGetCursor(_a.LocalClientId, out var body), Is.True, "the cursor is a body in the server's world");
+            Assert.That(Vector2.Distance(new Vector2(body.X, body.Y), target), Is.LessThan(2f));
+        }
+
+        /// <summary>UC-T33: a rope wraps on every player's grab (the UC-T8 switch is gone): pulled round, it catches the corner.</summary>
+        [UnityTest]
+        public IEnumerator EveryRope_WrapsRoundTheBody()
+        {
+            yield return StartAndJoinBoth();
             _onA.Move(new Vector2(OriginX + 60f, OriginY));
             _onA.Grab(BlockId, OriginX + 60f, OriginY);
-            _onB.Move(new Vector2(OriginX + 460f, OriginY));
-            _onB.GrabShape(ShapeId, OriginX + 460f, OriginY);
-            yield return WaitForConditionOrTimeOut(() => _aOnServer.Held == GrabKind.Block && _bOnServer.Held == GrabKind.Shape);
-            AssertOnTimeout("both grabs should land");
+            yield return WaitForConditionOrTimeOut(() => _aOnServer.Held == GrabKind.Block);
+            AssertOnTimeout("the grab should land");
 
-            _onA.Move(new Vector2(OriginX - 230f, OriginY - 30f));
-            _onB.Move(new Vector2(OriginX + 400f - 230f, OriginY - 30f));
+            // Round under the block and back behind it, slowly enough that the cursor follows (the rope slack all the way).
+            Vector2[] path = { new Vector2(OriginX + 150f, OriginY - 120f), new Vector2(OriginX, OriginY - 150f), new Vector2(OriginX - 100f, OriginY - 80f) };
+            foreach (Vector2 p in path)
+            {
+                yield return WaitForConditionOrTimeOut(() =>
+                {
+                    _onA.Move(p);   // unreliable: resend until it lands
+                    return Vector2.Distance(_aOnServer.Position, p) < 3f;
+                });
+                AssertOnTimeout("A's cursor never reached " + p + " (it is at " + _aOnServer.Position + ")");
+            }
 
             yield return WaitForConditionOrTimeOut(() => _aOnServer.Tether.Count == 2);
-            AssertOnTimeout("A's segmented rope never caught the block's corner (" + _aOnServer.Tether.Count + " points)");
+            AssertOnTimeout("A's rope never caught the block's corner (" + _aOnServer.Tether.Count + " points)");
             Assert.That(_aOnServer.Tether.Contact, Is.EqualTo(new Vector2(OriginX + 50f, OriginY - 50f)), "the bottom-right corner");
-            Vector2 jointAnchor = Sim.World.Rigidbody(BlockId).GetComponent<TargetJoint2D>().anchor;
-            Assert.That(jointAnchor.x, Is.EqualTo(0.5f).Within(1e-4f));
-            Assert.That(jointAnchor.y, Is.EqualTo(-0.5f).Within(1e-4f), "A's grab pulls the corner it caught");
+            Vector2 ropeAnchor = Sim.World.CursorBody(_a.LocalClientId).GetComponent<DistanceJoint2D>().connectedAnchor;
+            Assert.That(ropeAnchor.x, Is.EqualTo(0.5f).Within(1e-4f));
+            Assert.That(ropeAnchor.y, Is.EqualTo(-0.5f).Within(1e-4f), "A's rope pulls the corner it caught");
 
-            yield return WaitForConditionOrTimeOut(() => _bOnServer.Position == new Vector2(OriginX + 170f, OriginY - 30f));
-            AssertOnTimeout("B's move never landed");
-            for (int i = 0; i < 5; i++) yield return null;
-            Assert.That(_bOnServer.Tether.Count, Is.EqualTo(1), "B's rope stays straight: B never turned segmenting on");
-            Vector2 shapeAnchor = Sim.World.Rigidbody(ShapeId).GetComponent<TargetJoint2D>().anchor;
-            Assert.That(shapeAnchor.x, Is.EqualTo(0.5f).Within(1e-4f));
-            Assert.That(shapeAnchor.y, Is.EqualTo(0f).Within(1e-4f), "B's grab still pulls its rim anchor");
-
-            yield return WaitForConditionOrTimeOut(() => _onA.Tether.Count == 2 && _onB.Tether.Count == 1);
-            AssertOnTimeout("the ropes never replicated to their owners");
+            yield return WaitForConditionOrTimeOut(() => _onA.Tether.Count == 2);
+            AssertOnTimeout("the wrapped rope never replicated to its owner");
         }
 
         [UnityTest]
-        public IEnumerator Leash_HoldsTheCursorWithinMaxPullOfTheContact()
+        public IEnumerator TheRope_HoldsTheCursorWithinItsLength_WhileThePointerRunsOn()
         {
             yield return StartAndJoinBoth();
             _onA.Move(new Vector2(OriginX + 60f, OriginY));
@@ -286,21 +325,22 @@ namespace Unity.Cursory.Tests
 
             _onA.Move(new Vector2(OriginX + 2000f, OriginY));
 
-            var leashEnd = new Vector2(OriginX + 50f + Tuning.MaxPullPx, OriginY);
-            yield return WaitForConditionOrTimeOut(() => Vector2.Distance(_aOnServer.Position, leashEnd) < 0.01f);
-            AssertOnTimeout("the cursor should stop at the leash end (" + _aOnServer.Position + ")");
+            var ropeEnd = new Vector2(OriginX + 50f + Tuning.RopeLengthPx, OriginY);
+            yield return WaitForConditionOrTimeOut(() => Vector2.Distance(_aOnServer.Position, ropeEnd) < 1f);
+            AssertOnTimeout("the cursor should stop at the rope's end (" + _aOnServer.Position + ")");
+            Assert.That(_aOnServer.Pointer, Is.EqualTo(new Vector2(OriginX + 2000f, OriginY)), "the pointer runs on: it is only the ghost");
 
-            yield return WaitForConditionOrTimeOut(() => Vector2.Distance(_onA.Position, leashEnd) < 0.01f);
-            AssertOnTimeout("the leashed position never replicated");
+            yield return WaitForConditionOrTimeOut(() => Vector2.Distance(_onA.Position, ropeEnd) < 1f);
+            AssertOnTimeout("the held position never replicated");
             var rope = new List<Vector2>();
             Assert.That(_onA.TryGetRope(rope), Is.True);
             Assert.That(rope, Has.Count.EqualTo(2));
-            Assert.That(rope[0], Is.EqualTo(new Vector2(OriginX + 50f, OriginY)), "from the rim anchor");
-            Assert.That(Vector2.Distance(rope[0], rope[1]), Is.LessThanOrEqualTo(Tuning.MaxPullPx + 0.01f));
+            Assert.That(Vector2.Distance(rope[0], new Vector2(OriginX + 50f, OriginY)), Is.LessThan(1f), "from the rim anchor (the rope's snap may nudge the block a fraction of a pixel)");
+            Assert.That(Vector2.Distance(rope[0], rope[1]), Is.LessThanOrEqualTo(Tuning.RopeLengthPx + 0.01f));
         }
 
         [UnityTest]
-        public IEnumerator WallGrab_RopeRunsToTheWallsRim()
+        public IEnumerator WallGrab_RopeRunsToTheWallsRim_AndHoldsTheCursor()
         {
             yield return StartAndJoinBoth();
             _onA.Move(new Vector2(OriginX - 400f, OriginY + 150f));
@@ -308,7 +348,12 @@ namespace Unity.Cursory.Tests
 
             yield return WaitForConditionOrTimeOut(() => _onA.Tether.Count == 1);
             AssertOnTimeout("the wall grab's rope never reached A");
-            Assert.That(_onA.Tether.Contact, Is.EqualTo(new Vector2(OriginX - 400f + 25f, OriginY + 150f)), "on the wall's rim nearest the click");
+            var rim = new Vector2(OriginX - 400f + 25f, OriginY + 150f);
+            Assert.That(_onA.Tether.Contact, Is.EqualTo(rim), "on the wall's rim nearest the click");
+
+            _onA.Move(new Vector2(OriginX + 2000f, OriginY + 150f));
+            yield return WaitForConditionOrTimeOut(() => Vector2.Distance(_aOnServer.Position, rim + new Vector2(Tuning.RopeLengthPx, 0f)) < 1f);
+            AssertOnTimeout("a wall's rope should hold the cursor at its end (" + _aOnServer.Position + ")");
         }
 
         [UnityTest]
@@ -333,15 +378,19 @@ namespace Unity.Cursory.Tests
             _onA.Grab(BlockId, OriginX + 60f, OriginY);
             yield return WaitForConditionOrTimeOut(() => _aOnServer.Held == GrabKind.Block);
             AssertOnTimeout("the grab never landed");
-            _onA.Move(new Vector2(OriginX + 200f, OriginY));
-            yield return WaitForConditionOrTimeOut(() => aOnB.Tether.Count == 1 && aOnB.Position == new Vector2(OriginX + 200f, OriginY));
-            AssertOnTimeout("B never saw A's rope");
+            var target = new Vector2(OriginX + 200f, OriginY);
+            yield return WaitForConditionOrTimeOut(() =>
+            {
+                _onA.Move(target);
+                return aOnB.Tether.Count == 1 && Vector2.Distance(aOnB.Position, target) < 1f;
+            });
+            AssertOnTimeout("B never saw A's rope (" + aOnB.Tether.Count + " points, cursor at " + aOnB.Position + ")");
 
             seenByB.Redraw();
             Assert.That(seenByB.Line.enabled, Is.True);
             Assert.That(seenByB.Line.positionCount, Is.EqualTo(2), "anchor, then cursor");
             Assert.That(seenByB.Line.GetPosition(0).x, Is.EqualTo(WorldUnits.ToMeters(OriginX + 50f)).Within(1e-4f));
-            Assert.That(seenByB.Line.GetPosition(1).x, Is.EqualTo(WorldUnits.ToMeters(OriginX + 200f)).Within(1e-4f));
+            Assert.That(seenByB.Line.GetPosition(1).x, Is.EqualTo(WorldUnits.ToMeters(aOnB.Position.x)).Within(1e-4f), "to the cursor's body");
             Assert.That((Color32)seenByB.Line.startColor, Is.EqualTo((Color32)seenByB.Color), "the line keeps colour in 8 bits a channel");
 
             _onA.Release();

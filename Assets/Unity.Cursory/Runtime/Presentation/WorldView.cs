@@ -24,6 +24,12 @@ namespace Unity.Cursory
         /// <summary>A free cursor's resting tip direction: up and to the left, like a classic pointer.</summary>
         public const float RestingCursorDegrees = 135f;
 
+        /// <summary>How opaque a player's pointer ghost is (UC-T33): the cursor is the real thing, the pointer a hint.</summary>
+        public const float GhostAlpha = 0.3f;
+
+        /// <summary>The ghost shows only once the pointer is this far (world pixels) from the cursor.</summary>
+        public const float GhostShowsPastPx = 6f;
+
         private static Sprite s_Square;
         private static Material s_LineMaterial;
 
@@ -48,8 +54,8 @@ namespace Unity.Cursory
         /// <summary>
         /// Brings the picture up to date: <paramref name="level"/> (number <paramref name="levelNumber"/>) with
         /// <paramref name="state"/>'s goals, bulb and wires, the replicated <paramref name="bodies"/>, and
-        /// <paramref name="cursors"/>, the local one (<paramref name="local"/>) drawn at <paramref name="localPointer"/>
-        /// when given (Cursory draws your own arrow at your hand, not a round trip behind it).
+        /// <paramref name="cursors"/>, each at its physical body with a faint ghost at its pointer (UC-T33); the local
+        /// one's (<paramref name="local"/>) ghost sits at <paramref name="localPointer"/> when given, your hand at once.
         /// </summary>
         public void Render(LevelData level, int levelNumber, LevelStateSync state, IReadOnlyDictionary<string, Transform> bodies,
             IReadOnlyList<CursorAvatar> cursors, CursorAvatar local, Vector2? localPointer)
@@ -186,6 +192,7 @@ namespace Unity.Cursory
             foreach (CursorAvatar dead in _gone)
             {
                 if (_cursors[dead].Root != null) Destroy(_cursors[dead].Root.gameObject);
+                if (_cursors[dead].Ghost != null) Destroy(_cursors[dead].Ghost.gameObject);
                 _cursors.Remove(dead);
             }
 
@@ -199,7 +206,10 @@ namespace Unity.Cursory
                     _cursors[avatar] = glyph;
                 }
 
-                Vector2 at = avatar == local && localPointer.HasValue ? localPointer.Value : avatar.Position;
+                // UC-T33: the arrow is the real cursor, the server's body; the pointer (your own hand, at once, or another
+                // player's synced one) is a faint ghost of it, apart from the arrow only while a rope holds it back.
+                Vector2 at = avatar.Position;
+                Vector2 pointer = avatar == local && localPointer.HasValue ? localPointer.Value : avatar.Pointer;
                 float degrees = RestingCursorDegrees;
                 TetherSync tether = avatar.Tether;
                 if (tether.Count > 0)
@@ -210,11 +220,16 @@ namespace Unity.Cursory
 
                 glyph.Root.position = Meters(at.x, at.y, 0f);
                 glyph.Arrow.localRotation = Quaternion.Euler(0f, 0f, degrees);
+                glyph.Ghost.position = Meters(pointer.x, pointer.y, 0f);
+                glyph.Ghost.gameObject.SetActive((pointer - at).sqrMagnitude > GhostShowsPastPx * GhostShowsPastPx);
                 Color color = avatar.PlayerColor;
                 if (glyph.Color != color)
                 {
                     glyph.Color = color;
                     glyph.Mesh.colors = new[] { color, color, color, color };
+                    Color faint = color;
+                    faint.a = GhostAlpha;
+                    glyph.GhostMesh.colors = new[] { faint, faint, faint, faint };
                     glyph.Name.color = color;
                 }
 
@@ -227,17 +242,33 @@ namespace Unity.Cursory
         {
             Transform root = NewChild(transform, "Cursor " + avatar.OwnerClientId);
             Transform arrow = NewChild(root, "Arrow");
-            var mesh = new Mesh { name = "Cursor Arrow" };
-            // Tip at the origin pointing +x, body trailing behind (Cursory's drawArrow), in metres.
-            mesh.vertices = new[] { Vector3.zero, Meters(-24f, -8f, 0f), Meters(-16f, 0f, 0f), Meters(-24f, 8f, 0f) };
-            mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
-            mesh.colors = new[] { Color.white, Color.white, Color.white, Color.white };
+            Mesh mesh = ArrowMesh("Cursor Arrow");
             arrow.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
             var renderer = arrow.gameObject.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = LineMaterial;
             renderer.sortingOrder = 7;
             TextMeshPro name = LocalTextAt(root, "", 12f, new Vector2(19f, -40f), 7, TextAlignmentOptions.TopLeft);
-            return new CursorGlyph { Root = root, Arrow = arrow, Mesh = mesh, Name = name, Color = Color.clear };
+
+            Transform ghost = NewChild(transform, "Pointer " + avatar.OwnerClientId);
+            Transform ghostArrow = NewChild(ghost, "Ghost");
+            ghostArrow.localRotation = Quaternion.Euler(0f, 0f, RestingCursorDegrees);
+            Mesh ghostMesh = ArrowMesh("Pointer Ghost");
+            ghostArrow.gameObject.AddComponent<MeshFilter>().sharedMesh = ghostMesh;
+            var ghostRenderer = ghostArrow.gameObject.AddComponent<MeshRenderer>();
+            ghostRenderer.sharedMaterial = LineMaterial;
+            ghostRenderer.sortingOrder = 7;
+            ghost.gameObject.SetActive(false);
+            return new CursorGlyph { Root = root, Arrow = arrow, Mesh = mesh, Name = name, Ghost = ghost, GhostMesh = ghostMesh, Color = Color.clear };
+        }
+
+        /// <summary>Cursory's arrow: tip at the origin pointing +x, body trailing behind (its drawArrow), in metres.</summary>
+        private static Mesh ArrowMesh(string name)
+        {
+            var mesh = new Mesh { name = name };
+            mesh.vertices = new[] { Vector3.zero, Meters(-24f, -8f, 0f), Meters(-16f, 0f, 0f), Meters(-24f, 8f, 0f) };
+            mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            mesh.colors = new[] { Color.white, Color.white, Color.white, Color.white };
+            return mesh;
         }
 
         // --- ripples ----------------------------------------------------------------------------------------------
@@ -272,6 +303,7 @@ namespace Unity.Cursory
             foreach (CursorGlyph glyph in _cursors.Values)
             {
                 if (glyph.Mesh != null) Destroy(glyph.Mesh);
+                if (glyph.GhostMesh != null) Destroy(glyph.GhostMesh);
             }
         }
 
@@ -390,6 +422,8 @@ namespace Unity.Cursory
             public Transform Arrow;
             public Mesh Mesh;
             public TextMeshPro Name;
+            public Transform Ghost;
+            public Mesh GhostMesh;
             public Color Color;
         }
 

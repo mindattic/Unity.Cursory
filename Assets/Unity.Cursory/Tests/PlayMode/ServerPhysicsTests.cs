@@ -26,8 +26,8 @@ namespace Unity.Cursory.Tests
         /// <summary>Two seconds of server ticks.</summary>
         private const int TwoSeconds = 2 * SimulationRate.TicksPerSecond;
 
-        /// <summary>A pull this far past the anchor saturates the grab at its 60 N cap.</summary>
-        private const float FarPullPx = 300f;
+        /// <summary>A pointer this far past the anchor is well past the rope's end, so the cursor pulls at its 60 N cap (UC-T33).</summary>
+        private const float FarPullPx = 1000f;
 
         private SimulationMode2D _mode;
         private ServerSimulation _sim;
@@ -172,7 +172,9 @@ namespace Unity.Cursory.Tests
             var rb = world.Rigidbody(BlockId);
             var friction = rb.GetComponent<FrictionJoint2D>();
             Assert.That(world.Grab(CursorA, BlockId, 60f, 0f), Is.True);
-            var grab = rb.GetComponent<TargetJoint2D>();
+            Rigidbody2D cursor = world.CursorBody(CursorA);
+            var spring = cursor.GetComponent<TargetJoint2D>();
+            var rope = cursor.GetComponent<DistanceJoint2D>();
 
             Assert.That(rb.mass, Is.EqualTo(10f).Within(1e-4f), "rb.mass = Mass × 5");
             Assert.That(rb.gravityScale, Is.EqualTo(0f));
@@ -181,11 +183,21 @@ namespace Unity.Cursory.Tests
             Assert.That(friction.connectedBody, Is.Null, "friction is against the world");
             Assert.That(friction.maxForce, Is.EqualTo(80f).Within(1e-4f), "maxForce = Mass × 40");
             Assert.That(friction.maxTorque, Is.EqualTo(96f).Within(1e-4f), "maxTorque = maxForce × 1.2");
-            Assert.That(grab.maxForce, Is.EqualTo(60f));
-            Assert.That(grab.frequency, Is.EqualTo(5f));
-            Assert.That(grab.dampingRatio, Is.EqualTo(0.7f).Within(1e-6f));
-            Assert.That(grab.autoConfigureTarget, Is.False);
-            Assert.That(grab.anchor.x, Is.EqualTo(0.5f).Within(1e-5f), "100 px per metre: the right edge of a 100 px block");
+            Assert.That(rb.GetComponent<TargetJoint2D>(), Is.Null, "UC-T33: nothing pulls the body but ropes");
+
+            Assert.That(cursor.bodyType, Is.EqualTo(RigidbodyType2D.Dynamic), "the cursor is a body of its own");
+            Assert.That(cursor.mass, Is.EqualTo(Tuning.CursorMassKg).Within(1e-6f));
+            Assert.That(cursor.linearDamping, Is.EqualTo(Tuning.CursorLinearDamping));
+            Assert.That(cursor.gravityScale, Is.EqualTo(0f));
+            Assert.That(cursor.GetComponent<Collider2D>(), Is.Null, "the cursor passes over bodies, as in Cursory");
+            Assert.That(spring.maxForce, Is.EqualTo(60f), "the player's pull strength");
+            Assert.That(spring.frequency, Is.EqualTo(Tuning.CursorFrequency));
+            Assert.That(spring.dampingRatio, Is.EqualTo(Tuning.CursorDamping));
+            Assert.That(spring.autoConfigureTarget, Is.False);
+            Assert.That(rope.connectedBody, Is.SameAs(rb));
+            Assert.That(rope.maxDistanceOnly, Is.True);
+            Assert.That(rope.distance, Is.EqualTo(3f).Within(1e-5f), "a 300 px rope");
+            Assert.That(rope.connectedAnchor.x, Is.EqualTo(0.5f).Within(1e-5f), "100 px per metre: the right edge of a 100 px block");
         }
 
         [UnityTest]

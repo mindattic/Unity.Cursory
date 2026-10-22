@@ -4,13 +4,14 @@ using System.Collections.Generic;
 namespace Unity.Cursory.Core
 {
     /// <summary>
-    /// One grab's segmented tether (UC-T8, ported from Cursory's <c>RoomState.UpdateTether</c>): the rope runs from
-    /// the grab's rim anchor round the body's corners it has caught, then on to the cursor. Each update first unwinds
-    /// (drops the last caught corner once the rope no longer bends round it the way it did when it caught, i.e. it has
-    /// swung back past straight) and then wraps (while the last segment cuts clearly into the body, catches the corner
-    /// nearest where it enters).
-    /// The last caught corner, or the anchor when none is, is the <see cref="Contact"/>: the point the grab pulls, so
-    /// pulling round a corner turns the body until the rope is straight again.
+    /// One rope's wrap round the body it holds (UC-T8, always on since UC-T33; ported from Cursory's
+    /// <c>RoomState.UpdateTether</c>): the rope runs from the grab's rim anchor round the body's corners it has caught,
+    /// then on to the cursor. Each update first unwinds (drops the last caught corner once the rope no longer bends round
+    /// it the way it did when it caught, i.e. it has swung back past straight) and then wraps (while the last segment cuts
+    /// clearly into the body, catches the corner the rope slides to: of those it reaches without cutting the body, the
+    /// one most nearly toward the cursor).
+    /// The last caught corner, or the anchor when none is, is the <see cref="Contact"/>: where the rope's physical joint
+    /// pulls, so pulling round a corner turns the body until the rope is straight again.
     /// </summary>
     /// <remarks>
     /// Everything is in the body's own frame (world pixels, unrotated, from the body's origin), so a caught corner
@@ -31,6 +32,9 @@ namespace Unity.Cursory.Core
         public const float CatchInset = 12f;
 
         private const int MaxCatchesPerUpdate = 8;
+
+        /// <summary>Two corner points closer than this (px) are the same point.</summary>
+        private const float SameCorner = 0.5f;
 
         private readonly List<int> _caught = new List<int>();
 
@@ -54,11 +58,14 @@ namespace Unity.Cursory.Core
         /// Unwinds then wraps the rope for a cursor at (<paramref name="cursorX"/>, <paramref name="cursorY"/>), all in
         /// the body's own frame: the rope starts at the anchor (<paramref name="anchorX"/>, <paramref name="anchorY"/>)
         /// and may catch any of <paramref name="corners"/>; the body is the union of <paramref name="rects"/>.
+        /// A cursor over the body itself (it passes over bodies, as in Cursory) catches nothing new: the rope rises from the
+        /// rim to it. Nor does a rope catch a corner that would take its chain past <paramref name="maxChainLength"/>: a
+        /// real rope can't reach round a corner further away than its length.
         /// </summary>
         /// <returns>True when the <see cref="ContactCorner"/> changed.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="corners"/> or <paramref name="rects"/> is null.</exception>
         public bool Update(float anchorX, float anchorY, IReadOnlyList<(float X, float Y)> corners, IReadOnlyList<BodyRect> rects,
-            float cursorX, float cursorY)
+            float cursorX, float cursorY, float maxChainLength = float.PositiveInfinity)
         {
             if (corners == null) throw new ArgumentNullException(nameof(corners));
             if (rects == null) throw new ArgumentNullException(nameof(rects));
@@ -81,27 +88,25 @@ namespace Unity.Cursory.Core
                 _bends.RemoveAt(_bends.Count - 1);
             }
 
+            if (Inside(rects, cursorX, cursorY)) return ContactCorner != before;
+
+            var chainLength = 0f;
+            (float X, float Y) walked = (anchorX, anchorY);
+            foreach (var index in _caught)
+            {
+                chainLength += Distance(walked, corners[index]);
+                walked = corners[index];
+            }
+
             for (var guard = 0; guard < MaxCatchesPerUpdate && _caught.Count < MaxCorners; guard++)
             {
                 (float X, float Y) last = _caught.Count > 0 ? corners[_caught[_caught.Count - 1]] : (anchorX, anchorY);
                 if (!Cuts(rects, last.X, last.Y, cursorX, cursorY, -CatchInset)) break;
-                var t = EntryT(rects, last.X, last.Y, cursorX, cursorY);
-                var ex = last.X + (cursorX - last.X) * t;
-                var ey = last.Y + (cursorY - last.Y) * t;
-                var best = -1;
-                var bestD = float.MaxValue;
-                for (var i = 0; i < corners.Count; i++)
-                {
-                    if (_caught.Count > 0 && i == _caught[_caught.Count - 1]) continue;
-                    var d = (corners[i].X - ex) * (corners[i].X - ex) + (corners[i].Y - ey) * (corners[i].Y - ey);
-                    if (d < bestD)
-                    {
-                        bestD = d;
-                        best = i;
-                    }
-                }
-
+                var best = Wrapped(corners, rects, _caught.Count > 0 ? _caught[_caught.Count - 1] : -1, last.X, last.Y, cursorX, cursorY);
                 if (best < 0 || _caught.Contains(best)) break;   // no new corner to catch, or it would loop
+                var reach = Distance(last, corners[best]);
+                if (chainLength + reach > maxChainLength) break;   // further round than the rope is long
+                chainLength += reach;
                 var bend = Math.Sign(Bend(last.X, last.Y, corners[best].X, corners[best].Y, cursorX, cursorY));
                 if (bend == 0) break;   // the rope runs straight through that corner: nothing to wrap
                 _caught.Add(best);
@@ -141,6 +146,20 @@ namespace Unity.Cursory.Core
             return (cx - px) * (ty - cy) - (cy - py) * (tx - cx);
         }
 
+        private static float Distance((float X, float Y) a, (float X, float Y) b) =>
+            (float)Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
+
+        /// <summary>True when (<paramref name="x"/>, <paramref name="y"/>) is over the body, clear of its edge by <see cref="CatchInset"/>.</summary>
+        private static bool Inside(IReadOnlyList<BodyRect> rects, float x, float y)
+        {
+            foreach (var r in rects)
+            {
+                if (Math.Abs(x - r.Cx) < r.HalfW - CatchInset && Math.Abs(y - r.Cy) < r.HalfH - CatchInset) return true;
+            }
+
+            return false;
+        }
+
         private static bool Cuts(IReadOnlyList<BodyRect> rects, float fromX, float fromY, float toX, float toY, float margin)
         {
             foreach (var r in rects)
@@ -154,14 +173,37 @@ namespace Unity.Cursory.Core
             return false;
         }
 
-        private static float EntryT(IReadOnlyList<BodyRect> rects, float fromX, float fromY, float toX, float toY)
+        /// <summary>
+        /// The corner a rope from (<paramref name="fromX"/>, <paramref name="fromY"/>) toward the cursor bends round when it
+        /// would cut the body: of the corners it can reach without cutting the body (along an edge or through open space),
+        /// the one whose direction is closest to the cursor's, the nearer on a tie. The rope starts on the rim, so this is
+        /// the corner it slides to as the cursor swings round. -1 when there is none.
+        /// </summary>
+        private static int Wrapped(IReadOnlyList<(float X, float Y)> corners, IReadOnlyList<BodyRect> rects, int skip,
+            float fromX, float fromY, float cursorX, float cursorY)
         {
-            var best = 1f;
-            foreach (var r in rects)
+            var dx = cursorX - fromX;
+            var dy = cursorY - fromY;
+            var dLen = (float)Math.Sqrt(dx * dx + dy * dy);
+            if (dLen < 1e-4f) return -1;
+
+            var best = -1;
+            var bestCos = -2f;
+            var bestLen = float.MaxValue;
+            for (var i = 0; i < corners.Count; i++)
             {
-                if (TetherGeometry.SegmentRectEntry(fromX - r.Cx, fromY - r.Cy, toX - r.Cx, toY - r.Cy, r.HalfW, r.HalfH, out var t) && t < best)
+                if (i == skip) continue;
+                var kx = corners[i].X - fromX;
+                var ky = corners[i].Y - fromY;
+                var kLen = (float)Math.Sqrt(kx * kx + ky * ky);
+                if (kLen < SameCorner) continue;   // the point the rope already sits on (an anchor on a corner)
+                if (Cuts(rects, fromX, fromY, corners[i].X, corners[i].Y, -CatchInset)) continue;
+                var cos = (kx * dx + ky * dy) / (kLen * dLen);
+                if (cos > bestCos + 1e-5f || (Math.Abs(cos - bestCos) <= 1e-5f && kLen < bestLen))
                 {
-                    best = t;
+                    best = i;
+                    bestCos = cos;
+                    bestLen = kLen;
                 }
             }
 

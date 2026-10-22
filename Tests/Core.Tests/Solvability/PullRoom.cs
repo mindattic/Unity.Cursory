@@ -7,11 +7,10 @@ namespace Unity.Cursory.Core.Tests.Solvability
     /// <summary>
     /// A headless stand-in for the server's Physics2D world, just faithful enough to answer "can two cursors
     /// get this level's bodies to their goals?" without the editor. It models the Mass rule of BIBLE
-    /// UC-LAW-2 with the same constants the real sim uses (<see cref="Tuning"/>): each grab pulls with up to
-    /// <see cref="Tuning.GrabMaxForce"/> newtons, a spring of the grab joint's own stiffness (rigid body mass
-    /// times (2 pi <see cref="Tuning.GrabFrequency"/>) squared, so it saturates within about a pixel, as the real
-    /// joint does; the 300-pixel ramp of <see cref="Tuning.MaxPullPx"/> is only the HUD's pull readout); ground
-    /// friction is Coulomb friction of
+    /// UC-LAW-2 with the same constants the real sim uses (<see cref="Tuning"/>): each grab is UC-T33's rope of
+    /// <see cref="Tuning.RopeLengthPx"/> with the cursor at its far end, so it pulls only once the pointer is past the
+    /// rope's length, by the cursor spring's <see cref="Tuning.CursorPull"/> (capped at <see cref="Tuning.GrabMaxForce"/>
+    /// newtons, about 42 px past the rope's end), toward the pointer; ground friction is Coulomb friction of
     /// <see cref="Tuning.FrictionForce"/>; inertia is <see cref="Tuning.RigidbodyMass"/>; linear damping is
     /// <see cref="Tuning.LinearDamping"/>. Bodies translate only (no torque) and collide as axis-aligned boxes
     /// with walls, the world edge and each other, sliding along what they hit.
@@ -77,7 +76,7 @@ namespace Unity.Cursory.Core.Tests.Solvability
             return true;
         }
 
-        /// <summary>Moves <paramref name="user"/>'s cursor; a cursor more than the leash away from its grab only pulls harder up to the cap.</summary>
+        /// <summary>Moves <paramref name="user"/>'s pointer; it pulls once it is past the rope's length from the grab, harder up to the cap.</summary>
         public void SetCursor(string user, float x, float y)
         {
             if (grabs.TryGetValue(user, out var g)) { g.TargetX = x; g.TargetY = y; }
@@ -90,8 +89,6 @@ namespace Unity.Cursory.Core.Tests.Solvability
             foreach (var b in bodies)
             {
                 var kg = Tuning.RigidbodyMass(b.Mass);
-                var omega = 2f * (float)Math.PI * Tuning.GrabFrequency;
-                var saturationPx = WorldUnits.ToPixels(Tuning.GrabMaxForce / (kg * omega * omega));
                 float fx = 0, fy = 0;
                 foreach (var g in grabs.Values)
                 {
@@ -100,7 +97,8 @@ namespace Unity.Cursory.Core.Tests.Solvability
                     var dy = g.TargetY - (b.Y + g.LocalY);
                     var len = (float)Math.Sqrt(dx * dx + dy * dy);
                     if (len < 1e-3f) continue;
-                    var force = Tuning.GrabMaxForce * Math.Min(1f, len / saturationPx);
+                    // The cursor rests at the rope's far end; its spring pulls by how far the pointer is past that.
+                    var force = Tuning.CursorPull(len - Tuning.RopeLengthPx);
                     fx += force * dx / len;
                     fy += force * dy / len;
                 }
