@@ -1,0 +1,12 @@
+﻿{
+    "protocolVersion":  "1.1",
+    "updatedAt":  "2026-10-21T13:26:55.0160472Z",
+    "task":  "Running /allocate autopilot loop for Unity.Cursory: claim next workable ticket via orchestrator next --claim, dispatch one subagent per ticket, repeat until nothing is handed out.",
+    "decisions":  "Each ticket is worked by its own subagent in its own git worktree under D:\\Projects\\MindAttic.worktrees\\Unity.Cursory\\\u003cticket\u003e, landed on main via fetch/rebase/push, then closed with tickets ticket close. /allocate was turned off after claiming UC-T7 so no further tickets start automatically.",
+    "state":  "UC-T17 (exhaustive bug hunt) is closed: full pass found zero real bugs, verified against commit b11d645 on main (clean build, 204/204 tests passing). UC-T7 (networked cursor as NGO player object: NetEntity ToServer RPCs, server-authoritative body sync via NetworkTransform+NetworkRigidbody2D behind IBodySync) is still being worked by a subagent in worktree D:\\Projects\\MindAttic.worktrees\\Unity.Cursory\\UC-T7 on branch orch/uc-t7; it has not yet landed or closed as of this handoff. The other 9 open tickets remain blocked waiting on other open tickets.",
+    "next":  "Let the UC-T7 subagent finish, land on main, and close its ticket. After that, turn /allocate back on (or resume autopilot) for Unity.Cursory to keep working the remaining tickets as they unblock.",
+    "queued":  [
+
+               ],
+    "universe":  ""
+}
