@@ -58,7 +58,7 @@ Assets/Unity.Cursory/Runtime   Unity.Cursory.Runtime  MonoBehaviours: camera, ph
         ▲                                           (references the library, Capture, Input System, URP 2D)
 Assets/Unity.Cursory/Editor    Unity.Cursory.Editor   ProjectSetup: writes the URP 2D pipeline and Main scene
 Tests/Core.Tests              dotnet NUnit (net10.0) over Unity.Cursory.Core, no editor needed
-Packages/manifest.json        file:../../MindAttic.Unity.Multiplayer/unity/com.mindattic.unity.multiplayer
+Packages/manifest.json        file:../../Unity.Multiplayer/unity/com.mindattic.unity.multiplayer
                               file:../../MindAttic.Capture/unity/com.mindattic.capture
                               file:../../MindAttic.Components/unity/com.mindattic.components.unity (every menu and HUD widget)
                               file:../../Unity.Shared/unity/com.mindattic.unity.shared (the player's profile: name, colour)
@@ -69,7 +69,7 @@ Packages/manifest.json        file:../../MindAttic.Unity.Multiplayer/unity/com.m
   world pixel per screen pixel).
 - **Physics:** Physics2D, gravity 0 (top-down). From UC-T6 the server steps it in Script mode at
   1/30 s from the network tick; clients never simulate.
-- **Packages** resolve from the sibling checkouts, so the repo must sit next to MindAttic.Unity.Multiplayer,
+- **Packages** resolve from the sibling checkouts, so the repo must sit next to Unity.Multiplayer,
   MindAttic.Capture and MindAttic.Components (as it does under `D:\Projects\MindAttic`).
 
 ## 5. The Laws {#UC-§5}
@@ -119,7 +119,7 @@ Game rules that don't need Unity live in `Assets/Unity.Cursory/Core` (`noEngineR
 covered by `dotnet test Tests/Core.Tests` (NUnit). Runtime code is a thin layer over Core; a rule that
 can be decided without a `MonoBehaviour` is decided in Core.
 
-### UC-LAW-7 — Networking goes through MindAttic.Unity.Multiplayer {#UC-LAW-7}
+### UC-LAW-7 — Networking goes through Unity.Multiplayer {#UC-LAW-7}
 Sessions, RPCs and synced fields use the library (`NetSession`, `NetEntity`, `[ToServer]`,
 `[ToClients]`, `[Synced]`). The one recorded exception is body sync: NGO's `NetworkTransform` and
 `NetworkRigidbody2D` (x, y, rotation z; half precision; interpolated) sit behind an `IBodySync`
