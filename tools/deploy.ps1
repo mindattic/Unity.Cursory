@@ -3,7 +3,7 @@
 .SYNOPSIS
     The Windows CLIENT deploy (UC-T27): pulls latest, rebuilds the Windows Release player from scratch only if the
     player's source changed, publishes a standalone copy to C:\Apps\Unity.Cursory\, refreshes the Desktop shortcut
-    and (with -Launch) runs it. Same pipeline as Unity.Eve, Unity.SpaceGod and GridGameGaiden.
+    and (with -Launch) runs it. Same pipeline as Unity.Eve, Unity.SpaceGod and Unity.GridGame.
 
 .DESCRIPTION
     Not the dedicated server: the root deploy.ps1 hosts that through Unity.Multiplayer's `mp-host game` (UM-T58).

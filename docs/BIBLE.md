@@ -10,7 +10,7 @@ updated: 2026-10-21
 # Unity.Cursory — Project Bible
 > Single source of truth for what Unity.Cursory IS, is NOT, and the rules that keep it coherent.
 > README says how to build and run it; the design and build order live in MindAttic.Unity.Multiplayer's
-> [RFC 0001](https://github.com/mindattic/MindAttic.Unity.Multiplayer/blob/main/docs/rfc/0001-architecture.md)
+> [RFC 0001](https://github.com/mindattic/Unity.Multiplayer/blob/main/docs/rfc/0001-architecture.md)
 > (summarised for this repo in [rfc/0001-port-plan.md](rfc/0001-port-plan.md)); this says how to think about the system.
 
 Status legend: ✅ done (verified by a test/build) · 🟡 partial · ⬜ planned · `living`.
@@ -19,7 +19,7 @@ Status legend: ✅ done (verified by a test/build) · 🟡 partial · ⬜ planne
 Unity.Cursory is [Cursory](https://github.com/mindattic/Cursory)'s wordless co-op physics puzzle rebuilt
 in Unity 6 (6000.4.3f1): every player is a cursor on a shared top-down world, heavy bodies need several
 cursors pulling together, and the game runs on a dedicated server or a player-hosted listen server
-through [MindAttic.Unity.Multiplayer](https://github.com/mindattic/MindAttic.Unity.Multiplayer).
+through [Unity.Multiplayer](https://github.com/mindattic/Unity.Multiplayer).
 
 ## 2. The product promise {#UC-§2}
 - **Cursory's gameplay, unchanged.** The same 14 levels, the same Mass dial, grabs, tethers, goals,
