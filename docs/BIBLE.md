@@ -9,7 +9,7 @@ updated: 2026-10-21
 
 # Unity.Cursory — Project Bible
 > Single source of truth for what Unity.Cursory IS, is NOT, and the rules that keep it coherent.
-> README says how to build and run it; the design and build order live in MindAttic.Unity.Multiplayer's
+> README says how to build and run it; the design and build order live in Unity.Multiplayer's
 > [RFC 0001](https://github.com/mindattic/Unity.Multiplayer/blob/main/docs/rfc/0001-architecture.md)
 > (summarised for this repo in [rfc/0001-port-plan.md](rfc/0001-port-plan.md)); this says how to think about the system.
 

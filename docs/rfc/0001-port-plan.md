@@ -13,7 +13,7 @@ Unity.Cursory rebuilds [Cursory](https://github.com/mindattic/Cursory)'s co-op p
 Unity 6 (6000.4.3f1) on top of [Unity.Multiplayer](https://github.com/mindattic/Unity.Multiplayer).
 It supports a dedicated server (hub-and-spoke) and a player-hosted listen server, and players join by IP:port or a join code.
 
-The full design lives in one place: MindAttic.Unity.Multiplayer's `docs/rfc/0001-architecture.md`.
+The full design lives in one place: Unity.Multiplayer's `docs/rfc/0001-architecture.md`.
 That includes the physics mapping from Aether to Physics2D, body sync, the level port and the ticket chain.
 This repo's tickets are UC-T3 to UC-T15, and each requires the one before it:
 - UC-T3 waits for UM-T10 (the hand-written NGO adapter).
