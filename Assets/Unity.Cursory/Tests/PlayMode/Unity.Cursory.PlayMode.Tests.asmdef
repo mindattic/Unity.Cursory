@@ -14,6 +14,7 @@
         "Unity.Networking.Transport",
         "MindAttic.Components.Unity",
         "MindAttic.Components.Unity.Core",
+        "Unity.Shared.Core",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

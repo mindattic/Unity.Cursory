@@ -80,6 +80,33 @@ It pulls the latest commit, builds the Windows Release player (only when `Assets
 
 To play from the editor instead, open the project in Unity 6000.4.3f1 and press Play on `Assets/Unity.Cursory/Scenes/Main.unity`.
 
+For a quick dev launch without going through the shortcut, `tools\play.ps1` starts the deployed
+`Unity.Cursory.exe` (publishing it with `tools\deploy.ps1` first if it is missing; `-Build` rebuilds,
+`-Wait` waits for it to exit, the log goes to `Logs\play.log`):
+
+```powershell
+powershell -File tools\play.ps1
+```
+
+#### Muted launches
+
+`tools\play.ps1` launches muted: it sets `MINDATTIC_CLI_MUTED=1` and passes `-muted`, so a CLI or agent
+starting the game never plays whistles at you. Pass `-Sound` to launch with audio. Either switch works on
+its own when you start `Unity.Cursory.exe` yourself:
+
+```powershell
+$env:MINDATTIC_CLI_MUTED = '1'; C:\Apps\Unity.Cursory\Unity.Cursory.exe
+C:\Apps\Unity.Cursory\Unity.Cursory.exe -muted
+```
+
+The mute is the shared `com.mindattic.unity.shared` session mute (see [Unity.Shared's README](https://github.com/mindattic/Unity.Shared#readme), "Session mute"): read before the first scene loads, it
+makes the player profile's `CommonSettings` report sound effects muted for that run only, and
+`SessionAudio` (`Assets/Unity.Cursory/Runtime/Presentation/SessionAudio.cs`) silences the
+`AudioListener`, which covers every whistle (`WhistleAudio` plays them as one-shot sound effects;
+Cursory has no music). The player's saved `settings.json` is never written, so the next normal launch has
+sound. A profile whose own settings mute sound effects is honoured the same way. `tools\unity.ps1`'s
+`-batchmode` build and test runs play nothing audible and don't need it.
+
 ### Host or join a game
 
 1. Host: choose **Host** on the main menu. The lobby shows a join code to share, or, when no code can be published, "Players join by IP at your LAN address and port". Press **Start** when everyone is in.
