@@ -76,7 +76,7 @@ Close the Unity Editor on the project, then run:
 .\deploy.bat
 ```
 
-It pulls the latest commit, builds the Windows Release player (only when `Assets`, `Packages` or `ProjectSettings` changed since the last deploy), publishes it to `C:\Apps\Unity.Cursory`, points the `Unity.Cursory` Desktop shortcut at `deploy.bat`, and launches the game. After that, the shortcut is the way in. `tools\deploy.ps1 -DryRun` only says whether it would rebuild; the build log is `Logs\deploy-build.log`.
+It asks first: **1) Deploy & Run** pulls the latest commit, rebuilds the Windows Release player, publishes it to `C:\Apps\Unity.Cursory`, points the `Unity.Cursory` Desktop shortcut at `deploy.bat`, and launches the game; **2) Run** launches the build already published (deploying first if there is none). After that, the shortcut is the way in. Run unattended, `tools\deploy.ps1 -Launch` rebuilds only when `Assets`, `Packages` or `ProjectSettings` changed since the last deploy (`-Force` rebuilds anyway). `tools\deploy.ps1 -DryRun` only says whether it would rebuild; the build log is `Logs\deploy-build.log`.
 
 To play from the editor instead, open the project in Unity 6000.4.3f1 and press Play on `Assets/Unity.Cursory/Scenes/Main.unity`.
 

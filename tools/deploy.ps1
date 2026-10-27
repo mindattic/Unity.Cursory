@@ -12,16 +12,23 @@
     1. git pull --ff-only, unless tracked files have local changes or the pull fails (then it deploys the commit
        already checked out; untracked files such as .prose/ never block it).
     2. Skips the rebuild when C:\Apps\Unity.Cursory\.deploy-commit names a commit whose Assets, Packages and
-       ProjectSettings match HEAD (a docs- or tickets-only commit doesn't rebuild the game).
+       ProjectSettings match HEAD (a docs- or tickets-only commit doesn't rebuild the game), unless -Force.
     3. Stops any running Unity.Cursory.exe.
     4. Removes Build\WindowsRelease - the build OUTPUT only, never Library\ (Unity's import / compile cache).
     5. Runs tools\unity.ps1 -Method Unity.Cursory.EditorTools.CursoryBuild.BuildWindowsRelease (Editor must be
        closed) -> Build\WindowsRelease\Unity.Cursory.exe.
     6. Replaces C:\Apps\Unity.Cursory\ with it, writes .deploy-commit, and points the Desktop shortcut
-       Unity.Cursory.lnk at deploy.bat (not the exe), so a double-click always pulls and rebuilds when needed.
+       Unity.Cursory.lnk at deploy.bat (not the exe).
+
+    deploy.bat opens a menu first (MAT-T67): 1) Deploy & Run calls this script with -Force -Launch; 2) Run starts
+    the published exe without calling this script (deploying first if nothing is published yet). This script
+    itself never prompts, so agents and /deploy run it unattended.
 
 .PARAMETER Launch
     After publishing (or skipping), run the deployed Unity.Cursory.exe.
+
+.PARAMETER Force
+    Rebuild and republish even when the published commit is up to date. It skips only that check.
 
 .PARAMETER DryRun
     Don't pull, stop, build, publish or touch the shortcut: only report whether a deploy would rebuild.
@@ -36,6 +43,7 @@
 #>
 param(
     [switch]$Launch,
+    [switch]$Force,
     [switch]$DryRun,
     [string]$OutDir = 'C:\Apps\Unity.Cursory'
 )
@@ -73,7 +81,7 @@ function Set-Shortcut([string]$exe) {
     $link.TargetPath       = $deployBat
     $link.WorkingDirectory = $repoDir
     $link.IconLocation     = "$exe,0"
-    $link.Description      = 'Pull latest, build Release if changed, and launch Unity.Cursory'
+    $link.Description      = 'Unity.Cursory: 1) Deploy & Run (pull, rebuild, launch) or 2) Run the published build'
     $link.Save()
     Write-Host "    Shortcut -> $shortcut" -ForegroundColor Gray
 }
@@ -86,7 +94,7 @@ if ((Test-Path (Join-Path $out $exeName)) -and (Test-Path $marker)) {
     # A marker naming an unknown commit makes git write to stderr, which Stop would turn into a throw: it means rebuild.
     $ErrorActionPreference = 'Continue'
     git -C $repoDir diff --quiet $deployed $head -- Assets Packages ProjectSettings 2>$null
-    $upToDate = $LASTEXITCODE -eq 0
+    $upToDate = ($LASTEXITCODE -eq 0) -and -not $Force
     $ErrorActionPreference = 'Stop'
 }
 if ($DryRun) {

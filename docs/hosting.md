@@ -13,14 +13,15 @@ general picture (profiles, ports, TLS, updates) read the library's
 | Entry point | Deploys | How |
 |---|---|---|
 | `deploy.ps1` (repo root) | the **dedicated server** | a thin call to Unity.Multiplayer's `mp-host game`; the one the global `/deploy` router runs. This page. |
-| `deploy.bat` -> `tools/deploy.ps1` | the **Windows client** on this PC | pull, Release build of `Main.unity` (`CursoryBuild.BuildWindowsRelease`), publish to `C:\Apps\Unity.Cursory`, Desktop shortcut, launch (UC-T27) |
+| `deploy.bat` -> `tools/deploy.ps1` | the **Windows client** on this PC | pull, Release build of `Main.unity` (`CursoryBuild.BuildWindowsRelease`), publish to `C:\Apps\Unity.Cursory`, Desktop shortcut, launch (UC-T27); `deploy.bat` asks first: 1) Deploy & Run, 2) Run the published build (MAT-T67) |
 
 The client deploy is the same pipeline as Unity.Eve's and Unity.SpaceGod's. It pulls (`--ff-only`; skipped when tracked
 files have local changes), then skips the rebuild when `C:\Apps\Unity.Cursory\.deploy-commit` names a commit whose
-`Assets`, `Packages` and `ProjectSettings` match HEAD. Otherwise it stops any running `Unity.Cursory.exe`, deletes
+`Assets`, `Packages` and `ProjectSettings` match HEAD, unless `-Force`. Otherwise it stops any running `Unity.Cursory.exe`, deletes
 `Build/WindowsRelease`, builds it in Unity batch mode through `tools/unity.ps1` (the Editor must be closed), replaces
 `C:\Apps\Unity.Cursory` with it and writes the marker. The `Unity.Cursory` Desktop shortcut points at `deploy.bat`, not
-the exe, so a double-click always runs the latest commit. `tools/deploy.ps1 -DryRun` only reports whether it would
+the exe; it opens a menu: 1) Deploy & Run (`tools/deploy.ps1 -Force -Launch`, so it always rebuilds the latest commit) or
+2) Run (starts `C:\Apps\Unity.Cursory\Unity.Cursory.exe` without deploying). `tools/deploy.ps1 -DryRun` only reports whether it would
 rebuild; the build log is `Logs/deploy-build.log`.
 
 ## One command
