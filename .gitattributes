@@ -24,3 +24,5 @@
 *.dll binary
 *.so binary
 *.zip binary
+# cmd misses goto labels in LF batch files: .bat is checked out CRLF (MAT-T67).
+*.bat text eol=crlf
