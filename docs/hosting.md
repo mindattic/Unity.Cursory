@@ -12,36 +12,36 @@ general picture (profiles, ports, TLS, updates) read the library's
 
 | Entry point | Deploys | How |
 |---|---|---|
-| `deploy.ps1` (repo root) | the **dedicated server** | a thin call to Unity.Multiplayer's `mp-host game`; the one the global `/deploy` router runs. This page. |
-| `deploy.bat` -> `tools/deploy.ps1` | the **Windows client** on this PC | pull, Release build of `Main.unity` (`CursoryBuild.BuildWindowsRelease`), publish to `C:\Apps\Unity.Cursory`, Desktop shortcut, launch (UC-T27); `deploy.bat` asks first: 1) Deploy & Run, 2) Run the published build (MAT-T67) |
+| `run.ps1` (repo root) | the **dedicated server** | a thin call to Unity.Multiplayer's `mp-host game`; the one the global `/deploy` router runs. This page. |
+| `run.bat` -> `tools/run.ps1` | the **Windows client** on this PC | pull, Release build of `Main.unity` (`CursoryBuild.BuildWindowsRelease`), publish to `C:\Apps\Unity.Cursory`, Desktop shortcut, launch (UC-T27); `run.bat` asks first: 1) Deploy & Run, 2) Run the published build (MAT-T67) |
 
 The client deploy is the same pipeline as Unity.Eve's and Unity.SpaceGod's. It pulls (`--ff-only`; skipped when tracked
 files have local changes), then skips the rebuild when `C:\Apps\Unity.Cursory\.deploy-commit` names a commit whose
 `Assets`, `Packages` and `ProjectSettings` match HEAD, unless `-Force`. Otherwise it stops any running `Unity.Cursory.exe`, deletes
 `Build/WindowsRelease`, builds it in Unity batch mode through `tools/unity.ps1` (the Editor must be closed), replaces
-`C:\Apps\Unity.Cursory` with it and writes the marker. The `Unity.Cursory` Desktop shortcut points at `deploy.bat`, not
-the exe; it opens a menu: 1) Deploy & Run (`tools/deploy.ps1 -Force -Launch`, so it always rebuilds the latest commit) or
-2) Run (starts `C:\Apps\Unity.Cursory\Unity.Cursory.exe` without deploying). `tools/deploy.ps1 -DryRun` only reports whether it would
+`C:\Apps\Unity.Cursory` with it and writes the marker. The `Unity.Cursory` Desktop shortcut points at `run.bat`, not
+the exe; it opens a menu: 1) Deploy & Run (`tools/run.ps1 -Force -Launch`, so it always rebuilds the latest commit) or
+2) Run (starts `C:\Apps\Unity.Cursory\Unity.Cursory.exe` without deploying). `tools/run.ps1 -DryRun` only reports whether it would
 rebuild; the build log is `Logs/deploy-build.log`.
 
 ## One command
 
 Cursory has no server build or deploy code of its own (UM-T58). Unity.Multiplayer's `mp-host game` builds and deploys any
-game on the library; `deploy.ps1` is only a thin call to it, kept so the global `/deploy` router finds it.
+game on the library; `run.ps1` is only a thin call to it, kept so the global `/deploy` router finds it.
 
 ```powershell
-./deploy.ps1 -DryRun                     # see every step without building or touching a server
-./deploy.ps1 --public-address <vps ip>   # GenericVps (the default): your own UDP-capable Linux VPS
-./deploy.ps1 -Profile RunPod --rendezvous-url http://<vps>:8080   # a RunPod pod over WebSocket
-./deploy.ps1 -Profile Local              # server + rendezvous on this PC with Docker Desktop
-./deploy.ps1 -Profile Local -Down        # stop the local stack
+./run.ps1 -DryRun                     # see every step without building or touching a server
+./run.ps1 --public-address <vps ip>   # GenericVps (the default): your own UDP-capable Linux VPS
+./run.ps1 -Profile RunPod --rendezvous-url http://<vps>:8080   # a RunPod pod over WebSocket
+./run.ps1 -Profile Local              # server + rendezvous on this PC with Docker Desktop
+./run.ps1 -Profile Local -Down        # stop the local stack
 
 # the same, without the script (mp-host installed with Unity.Multiplayer's tools/install-mp-host.ps1):
 mp-host game local                       # from this folder; 'mp-host game down' stops it
 mp-host game deploy --dry-run
 ```
 
-`deploy.ps1` takes `-Profile` (any mp-host profile), `-DryRun`, `-SkipBuild` and `-Down`, and passes every other
+`run.ps1` takes `-Profile` (any mp-host profile), `-DryRun`, `-SkipBuild` and `-Down`, and passes every other
 `mp-host game` option through as given (`--public-address`, `--rendezvous-url`, `--upnp`, `--development`, ...).
 It runs `$env:MP_HOST`, else the installed `mp-host`, else a `dotnet run` of `../Unity.Multiplayer/src/Hosting.Cli`.
 

@@ -11,7 +11,7 @@ Cursory, the wordless co-op physics puzzle, rebuilt in Unity 6: every player is 
 
 ![In game on level 1: the HUD toolbar with the level picker, Reset and the Hosting status, a reset vote overlay with its tally and Yes and No buttons, the level banner, a block of mass 1, its goal pad and the minimap](docs/images/in-game-vote.png)
 
-Try it: on Windows, clone the repo with its sibling packages and run `deploy.bat` (see [Quick start](#quick-start)).
+Try it: on Windows, clone the repo with its sibling packages and run `run.bat` (see [Quick start](#quick-start)).
 
 ## Why
 
@@ -73,15 +73,15 @@ Try it: on Windows, clone the repo with its sibling packages and run `deploy.bat
 Close the Unity Editor on the project, then run:
 
 ```powershell
-.\deploy.bat
+.\run.bat
 ```
 
-It asks first: **1) Deploy & Run** pulls the latest commit, rebuilds the Windows Release player, publishes it to `C:\Apps\Unity.Cursory`, points the `Unity.Cursory` Desktop shortcut at `deploy.bat`, and launches the game; **2) Run** launches the build already published (deploying first if there is none). After that, the shortcut is the way in. Run unattended, `tools\deploy.ps1 -Launch` rebuilds only when `Assets`, `Packages` or `ProjectSettings` changed since the last deploy (`-Force` rebuilds anyway). `tools\deploy.ps1 -DryRun` only says whether it would rebuild; the build log is `Logs\deploy-build.log`.
+It asks first: **1) Deploy & Run** pulls the latest commit, rebuilds the Windows Release player, publishes it to `C:\Apps\Unity.Cursory`, points the `Unity.Cursory` Desktop shortcut at `run.bat`, and launches the game; **2) Run** launches the build already published (deploying first if there is none). After that, the shortcut is the way in. Run unattended, `tools\run.ps1 -Launch` rebuilds only when `Assets`, `Packages` or `ProjectSettings` changed since the last deploy (`-Force` rebuilds anyway). `tools\run.ps1 -DryRun` only says whether it would rebuild; the build log is `Logs\deploy-build.log`.
 
 To play from the editor instead, open the project in Unity 6000.4.3f1 and press Play on `Assets/Unity.Cursory/Scenes/Main.unity`.
 
 For a quick dev launch without going through the shortcut, `tools\play.ps1` starts the deployed
-`Unity.Cursory.exe` (publishing it with `tools\deploy.ps1` first if it is missing; `-Build` rebuilds,
+`Unity.Cursory.exe` (publishing it with `tools\run.ps1` first if it is missing; `-Build` rebuilds,
 `-Wait` waits for it to exit, the log goes to `Logs\play.log`):
 
 ```powershell
@@ -120,13 +120,13 @@ Codes come from a rendezvous service. The Local and GenericVps server profiles r
 From the repo folder:
 
 ```powershell
-./deploy.ps1 -Profile Local              # build the headless Linux server and run it with rendezvous under Docker Desktop
-./deploy.ps1 -Profile Local -Down        # stop it
-./deploy.ps1 -DryRun                     # print every step of a GenericVps deploy without doing it
-./deploy.ps1 --public-address <vps ip>   # GenericVps (the default): your own UDP-capable Linux VPS
+./run.ps1 -Profile Local              # build the headless Linux server and run it with rendezvous under Docker Desktop
+./run.ps1 -Profile Local -Down        # stop it
+./run.ps1 -DryRun                     # print every step of a GenericVps deploy without doing it
+./run.ps1 --public-address <vps ip>   # GenericVps (the default): your own UDP-capable Linux VPS
 ```
 
-`deploy.ps1` is a thin call to Unity.Multiplayer's `mp-host game local | deploy | down --project .`; with `mp-host` installed (Unity.Multiplayer's `tools/install-mp-host.ps1`) you can run `mp-host game local` directly. It finds the editor, builds the server package from `Main.unity` and runs it. Players then join the server's address by IP, or its code by **Join by code**. Profiles, credentials and RunPod are in [docs/hosting.md](docs/hosting.md).
+`run.ps1` is a thin call to Unity.Multiplayer's `mp-host game local | deploy | down --project .`; with `mp-host` installed (Unity.Multiplayer's `tools/install-mp-host.ps1`) you can run `mp-host game local` directly. It finds the editor, builds the server package from `Main.unity` and runs it. Players then join the server's address by IP, or its code by **Join by code**. Profiles, credentials and RunPod are in [docs/hosting.md](docs/hosting.md).
 
 ### Watch two bots solve level 2
 
@@ -172,8 +172,8 @@ For a file-by-file walkthrough of how Cursory uses each piece of the kit (the ma
 | `Assets/Unity.Cursory/Editor` | Project setup, asset writers and the Windows Release build |
 | `Assets/Unity.Cursory/Tests/PlayMode` | PlayMode suites |
 | `Tests/Core.Tests` | `dotnet test` project for Core (in `Core.slnx`) |
-| `deploy.bat`, `tools/deploy.ps1` | Windows client deploy |
-| `deploy.ps1`, `mp-host.json` | Dedicated server deploy and its defaults |
+| `run.bat`, `tools/run.ps1` | Windows client deploy |
+| `run.ps1`, `mp-host.json` | Dedicated server deploy and its defaults |
 | `.github/workflows/nightly.yml` | Nightly dotnet, PlayMode and Docker Compose bot smoke |
 
 ## Building

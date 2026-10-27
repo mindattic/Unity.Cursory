@@ -3,19 +3,19 @@
     Deploy Cursory's dedicated server: a thin call to Unity.Multiplayer's `mp-host game` (UM-T58).
 
 .DESCRIPTION
-    Server only: the Windows client is deployed to this PC by deploy.bat (tools/deploy.ps1, UC-T27).
-    Kept so the global /deploy router finds a deploy.ps1; everything it does is generic `mp-host game`, which finds
+    Server only: the Windows client is deployed to this PC by run.bat (tools/run.ps1, UC-T27).
+    Kept so the global /deploy router finds a run.ps1; everything it does is generic `mp-host game`, which finds
     Unity 6000.4.3f1 from ProjectSettings/ProjectVersion.txt, builds the server package from Main.unity (the first
     Build Settings scene) with the library's batch build, and runs the mp-host pipeline. Defaults (server name
     'cursory', image mindattic/unity-cursory) are in mp-host.json. Any other mp-host game option passes through, e.g.
     --public-address 203.0.113.5, --rendezvous-url ..., --upnp, --development. See docs/hosting.md.
 
 .EXAMPLE
-    ./deploy.ps1 -DryRun
-    ./deploy.ps1 -Profile GenericVps --public-address 203.0.113.5
-    ./deploy.ps1 -Profile RunPod --rendezvous-url http://203.0.113.5:8080
-    ./deploy.ps1 -Profile Local
-    ./deploy.ps1 -Profile Local -Down
+    ./run.ps1 -DryRun
+    ./run.ps1 -Profile GenericVps --public-address 203.0.113.5
+    ./run.ps1 -Profile RunPod --rendezvous-url http://203.0.113.5:8080
+    ./run.ps1 -Profile Local
+    ./run.ps1 -Profile Local -Down
 #>
 [CmdletBinding(PositionalBinding = $false)]
 param(

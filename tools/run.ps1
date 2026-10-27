@@ -6,8 +6,8 @@
     and (with -Launch) runs it. Same pipeline as Unity.Eve, Unity.SpaceGod and Unity.GridGame.
 
 .DESCRIPTION
-    Not the dedicated server: the root deploy.ps1 hosts that through Unity.Multiplayer's `mp-host game` (UM-T58).
-    deploy.bat (beside this repo's root deploy.ps1) is this script's entry point and what the Desktop shortcut runs.
+    Not the dedicated server: the root run.ps1 hosts that through Unity.Multiplayer's `mp-host game` (UM-T58).
+    run.bat (beside this repo's root run.ps1) is this script's entry point and what the Desktop shortcut runs.
 
     1. git pull --ff-only, unless tracked files have local changes or the pull fails (then it deploys the commit
        already checked out; untracked files such as .prose/ never block it).
@@ -18,9 +18,9 @@
     5. Runs tools\unity.ps1 -Method Unity.Cursory.EditorTools.CursoryBuild.BuildWindowsRelease (Editor must be
        closed) -> Build\WindowsRelease\Unity.Cursory.exe.
     6. Replaces C:\Apps\Unity.Cursory\ with it, writes .deploy-commit, and points the Desktop shortcut
-       Unity.Cursory.lnk at deploy.bat (not the exe).
+       Unity.Cursory.lnk at run.bat (not the exe).
 
-    deploy.bat opens a menu first (MAT-T67): 1) Deploy & Run calls this script with -Force -Launch; 2) Run starts
+    run.bat opens a menu first (MAT-T67): 1) Deploy & Run calls this script with -Force -Launch; 2) Run starts
     the published exe without calling this script (deploying first if nothing is published yet). This script
     itself never prompts, so agents and /deploy run it unattended.
 
@@ -37,9 +37,9 @@
     Where to publish. Defaults to C:\Apps\Unity.Cursory.
 
 .EXAMPLE
-    deploy.bat
-    powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -DryRun
-    powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Launch
+    run.bat
+    powershell -ExecutionPolicy Bypass -File tools\run.ps1 -DryRun
+    powershell -ExecutionPolicy Bypass -File tools\run.ps1 -Launch
 #>
 param(
     [switch]$Launch,
@@ -56,7 +56,7 @@ $out       = $OutDir
 $exeName   = 'Unity.Cursory.exe'
 $procName  = [IO.Path]::GetFileNameWithoutExtension($exeName)
 $buildDir  = Join-Path $repoDir 'Build\WindowsRelease'
-$deployBat = Join-Path $repoDir 'deploy.bat'
+$runBat = Join-Path $repoDir 'run.bat'
 $marker    = Join-Path $out '.deploy-commit'
 $shortcut  = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Unity.Cursory.lnk'   # not $HOME\Desktop: OneDrive may move it
 
@@ -78,7 +78,7 @@ $head = (git -C $repoDir rev-parse HEAD).Trim()
 
 function Set-Shortcut([string]$exe) {
     $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)
-    $link.TargetPath       = $deployBat
+    $link.TargetPath       = $runBat
     $link.WorkingDirectory = $repoDir
     $link.IconLocation     = "$exe,0"
     $link.Description      = 'Unity.Cursory: 1) Deploy & Run (pull, rebuild, launch) or 2) Run the published build'

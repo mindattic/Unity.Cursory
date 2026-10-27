@@ -7,9 +7,9 @@ using UnityEngine;
 namespace Unity.Cursory.EditorTools
 {
     /// <summary>
-    /// The Windows client build (UC-T27) that <c>deploy.bat</c> / <c>tools/deploy.ps1</c> publish to C:\Apps\Unity.Cursory,
+    /// The Windows client build (UC-T27) that <c>run.bat</c> / <c>tools/run.ps1</c> publish to C:\Apps\Unity.Cursory,
     /// the same shape as Unity.Eve's and Unity.SpaceGod's: one StandaloneWindows64 player of <see cref="ProjectSetup.ScenePath"/>.
-    /// The dedicated server is built separately, by Unity.Multiplayer's <c>mp-host game</c> (root <c>deploy.ps1</c>).
+    /// The dedicated server is built separately, by Unity.Multiplayer's <c>mp-host game</c> (root <c>run.ps1</c>).
     /// Player settings (window mode, resolution) are left as ProjectSettings has them, so a deploy never dirties the repo.
     ///
     /// Batch: powershell -File tools/unity.ps1 -Method Unity.Cursory.EditorTools.CursoryBuild.BuildWindowsRelease -Graphics
