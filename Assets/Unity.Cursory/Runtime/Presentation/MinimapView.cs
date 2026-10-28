@@ -53,6 +53,9 @@ namespace Unity.Cursory
         /// <summary>Times the map has been drawn.</summary>
         public int Draws => Map != null ? Map.Draws : 0;
 
+        /// <summary>The camera's visible world rectangle as the map last drew it (world pixels); null before a draw with a view.</summary>
+        public MapRect? Viewport { get; private set; }
+
         /// <summary>Adds a minimap to <paramref name="canvas"/>.</summary>
         public static MinimapView Create(Canvas canvas) => new MinimapView(canvas);
 
@@ -86,7 +89,8 @@ namespace Unity.Cursory
             if (view != null)
             {
                 var v = view.Visible(screen.x, screen.y);
-                Map.SetViewport(new MapRect(v.X, v.Y, v.W, v.H));
+                Viewport = new MapRect(v.X, v.Y, v.W, v.H);
+                Map.SetViewport(Viewport);
             }
 
             if (cursors != null)

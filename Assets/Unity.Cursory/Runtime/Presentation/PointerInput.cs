@@ -124,6 +124,13 @@ namespace Unity.Cursory
         {
             Screen = screen;
             if (_client.IsMenuOpen) return;
+            if (_client.TetherFollow.Active)
+            {
+                // UC-T34: tethered, the camera frames the rope; the wheel sets how close it may come, not the view itself.
+                if (scrollY != 0f && !float.IsNaN(scrollY)) _client.TetherFollow.Wheel(scrollY > 0f ? CameraView.WheelStep : 1f / CameraView.WheelStep);
+                return;
+            }
+
             Vector2 size = _client.ScreenSize;
             _client.View.Wheel(screen.x, screen.y, scrollY, size.x, size.y);
         }

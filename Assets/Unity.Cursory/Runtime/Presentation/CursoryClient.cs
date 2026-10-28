@@ -51,12 +51,55 @@ namespace Unity.Cursory
         private float _nextMove;
         private float _nextLookup;
         private Vector2? _lastSent;
+        private bool _profileReduceMotion;
+        private float _nextMotionLookup;
 
         /// <summary>The session this presents.</summary>
         public NetSession Session => _session;
 
         /// <summary>The camera's centre and zoom, in world pixels.</summary>
         public CameraView View { get; } = new CameraView();
+
+        /// <summary>
+        /// The tether camera (UC-T34): while the local cursor is tethered it frames the cursor and the rope's anchor on
+        /// the object; <see cref="TetherCamera.Active"/> is false while the camera is the player's to pan and zoom.
+        /// </summary>
+        public TetherCamera TetherFollow { get; } = new TetherCamera();
+
+        /// <summary>Forces reduce motion on or off (tests); null (the default) follows the theme and the player's profile.</summary>
+        public bool? ReduceMotionOverride { get; set; }
+
+        /// <summary>
+        /// True when the camera should jump rather than ease: <see cref="ReduceMotionOverride"/> when set, else the
+        /// MindAttic theme's reduce-motion switch or the player's shared profile setting (Unity.Shared CommonSettings).
+        /// </summary>
+        public bool ReduceMotion
+        {
+            get
+            {
+                if (ReduceMotionOverride.HasValue) return ReduceMotionOverride.Value;
+                if (Time.unscaledTime >= _nextMotionLookup)
+                {
+                    _nextMotionLookup = Time.unscaledTime + 0.5f;
+                    _profileReduceMotion = ProfileReducesMotion();
+                }
+
+                return MindAttic.Components.Unity.MaTheme.ReduceMotion || _profileReduceMotion;
+            }
+        }
+
+        private static bool ProfileReducesMotion()
+        {
+            if (!Unity.Shared.Core.Profiles.IsConfigured) return false;
+            try
+            {
+                return Unity.Shared.Core.Profiles.Current.Settings.Common.ReduceMotion;
+            }
+            catch (Exception)
+            {
+                return false;   // a profile the disk refuses just means full motion
+            }
+        }
 
         /// <summary>The top-down camera this drives.</summary>
         public TopDownCamera Camera => _camera;
@@ -290,7 +333,7 @@ namespace Unity.Cursory
             FindRoomEntities();
             if (ReadDevices) ReadMouse();
             SendMove();
-            FollowGrab();
+            FollowTether();
         }
 
         private void LateUpdate()
@@ -407,15 +450,25 @@ namespace Unity.Cursory
             me.Move(world.Value);
         }
 
-        /// <summary>While dragging a body, ease the camera to the midpoint of the cursor and the body (Cursory's followCamera).</summary>
-        private void FollowGrab()
+        /// <summary>
+        /// UC-T34: while the local cursor is tethered (its rope has a chain), ease the camera to the midpoint of the
+        /// cursor and the rope's anchor on the object, zoomed out just enough to keep both in view
+        /// (<see cref="TetherFollow"/>); once it isn't, hand the camera back to free pan and zoom.
+        /// </summary>
+        private void FollowTether()
         {
-            PickResult held = Pointer.Holding;
-            if (IsMenuOpen || (held.Kind != PickKind.Block && held.Kind != PickKind.Shape)) return;
-            Vector2? world = Pointer.World;
-            if (!world.HasValue || !_bodies.TryGetValue(held.Id, out Transform body) || body == null) return;
-            BodyPose pose = ClientBodies.PoseOf(body);
-            View.Follow((world.Value.x + pose.X) / 2f, (world.Value.y + pose.Y) / 2f);
+            CursorAvatar me = LocalAvatar;
+            bool tethered = !IsMenuOpen && me != null && me.IsSpawned && me.Tether.Count > 0;
+            if (!tethered)
+            {
+                if (TetherFollow.Active) TetherFollow.End();
+                return;
+            }
+
+            Vector2 cursor = me.Position;
+            Vector2 anchor = me.Tether[0];
+            Vector2 size = ScreenSize;
+            TetherFollow.Step(View, cursor.x, cursor.y, anchor.x, anchor.y, size.x, size.y, Time.unscaledDeltaTime, ReduceMotion);
         }
 
         private void CollectBodies(LevelData level)
