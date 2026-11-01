@@ -67,3 +67,5 @@ _Nothing recorded yet._
 | UC-T44 | 2026-10-25 | fix | closed | docs/BIBLE.md lines 61, 72, and 122 still say MindAttic.Unity.Multiplayer (a sibling-checkout folder path and a law heading) -- leftover from the Unity Fleet Rename, same as UC-T41 fixed elsewhere in this file, but these weren't flagged by the MAT-T26 sweep or UC-T41's review since they aren't GitHub links. Rename to Unity.Multiplayer. | bbb661a |
 | UC-T45 | 2026-10-27 | docs | closed | Update USER_STORIES.md | — |
 | UC-T46 | 2026-10-28 | docs | closed | Update USER_STORIES.md | — |
+| UC-T47 | 2026-10-29 | chore | open | Rename Unity.Cursory to Unity.Rea.Cursory everywhere: folder, GitHub, namespaces, docs, deployments (identifies it as reverse-engineered) | — |
+| UC-T48 | 2026-10-31 | docs | closed | Update USER_STORIES.md | — |
