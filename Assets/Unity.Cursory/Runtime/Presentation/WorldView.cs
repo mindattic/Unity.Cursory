@@ -193,6 +193,9 @@ namespace Unity.Cursory
             {
                 if (_cursors[dead].Root != null) Destroy(_cursors[dead].Root.gameObject);
                 if (_cursors[dead].Ghost != null) Destroy(_cursors[dead].Ghost.gameObject);
+                // The meshes are created per cursor and only referenced as sharedMesh, so destroying the objects leaves them behind.
+                if (_cursors[dead].Mesh != null) Destroy(_cursors[dead].Mesh);
+                if (_cursors[dead].GhostMesh != null) Destroy(_cursors[dead].GhostMesh);
                 _cursors.Remove(dead);
             }
 

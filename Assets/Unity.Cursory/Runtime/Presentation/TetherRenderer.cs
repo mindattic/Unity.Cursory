@@ -27,6 +27,7 @@ namespace Unity.Cursory
         private CursorAvatar _avatar;
         private LineRenderer _line;
         private Color _color;
+        private Material _material;
 
         /// <summary>The line this draws with (created on first use).</summary>
         public LineRenderer Line
@@ -115,7 +116,14 @@ namespace Unity.Cursory
             _line.enabled = false;
             var shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
             if (shader == null) shader = Shader.Find("Sprites/Default");
-            if (shader != null) _line.sharedMaterial = new Material(shader);
+            if (shader != null) _line.sharedMaterial = _material = new Material(shader);
+        }
+
+        private void OnDestroy()
+        {
+            // The material is made per rope; a despawned cursor would otherwise leave it behind.
+            if (_material != null) Destroy(_material);
+            _material = null;
         }
     }
 }

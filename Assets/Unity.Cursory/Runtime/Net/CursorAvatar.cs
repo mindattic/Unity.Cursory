@@ -264,6 +264,7 @@ namespace Unity.Cursory
                 return;
             }
 
+            ReleaseHeld();   // a wire end held until now snaps (or stays loose) instead of staying held by this cursor
             if (world.Grab(OwnerClientId, blockId, clickX, clickY))
             {
                 SetHeld(GrabKind.Block, blockId);
@@ -278,6 +279,7 @@ namespace Unity.Cursory
                 return;
             }
 
+            ReleaseHeld();   // as for a block: let go of a held wire end first
             if (world.Grab(OwnerClientId, shapeId, clickX, clickY))
             {
                 SetHeld(GrabKind.Shape, shapeId);
