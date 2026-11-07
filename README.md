@@ -88,6 +88,13 @@ For a quick dev launch without going through the shortcut, `tools\play.ps1` star
 powershell -File tools\play.ps1
 ```
 
+#### Headless launches
+
+For scripted testing (off by default), `tools\play.ps1 -Headless` runs the player with no window through the shared launcher
+(`..\Unity.Shared\tools\Start-Headless.ps1`: `--headless -batchmode -nographics`, log to `Logs\play.log`) and waits for the
+`MINDATTIC_HEADLESS_READY` log line. Batch mode makes Unity.Multiplayer start the session by itself (no main menu to click), so
+nothing else is needed in the game. Without `--headless` nothing changes.
+
 #### Muted launches
 
 `tools\play.ps1` launches muted: it sets `MINDATTIC_CLI_MUTED=1` and passes `-muted`, so a CLI or agent
