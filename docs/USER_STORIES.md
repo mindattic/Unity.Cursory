@@ -69,3 +69,8 @@ _Nothing recorded yet._
 | UC-T46 | 2026-10-28 | docs | closed | Update USER_STORIES.md | — |
 | UC-T47 | 2026-10-29 | chore | open | Rename Unity.Cursory to Unity.Rea.Cursory everywhere: folder, GitHub, namespaces, docs, deployments (identifies it as reverse-engineered) | — |
 | UC-T48 | 2026-10-31 | docs | closed | Update USER_STORIES.md | — |
+| UC-T49 | 2026-11-02 | docs | open | Adopt MindAttic.Agency docs-site pipeline, publish README to GitHub Pages (HOUSE-LAW-14) | — |
+| UC-T50 | 2026-11-02 | fix | closed | Bughunt sweep, two passes: find and fix real bugs across tracked source (user request 2026-11-02) | — |
+| UC-T51 | 2026-11-06 | feature | closed | Adopt the shared off-by-default --headless launch mode (Unity.Shared) | cb8d5f8 |
+| UC-T52 | 2026-11-10 | chore | closed | Crash recovery: commit the command-catalog sync (.agent/commands/*.md) and regenerated docs/USER_STORIES.md left uncommitted by the session crash | — |
+| UC-T53 | 2026-11-10 | chore | open | Crash recovery: commit the command-catalog sync (.agent/commands/*.md) and regenerated docs/USER_STORIES.md left uncommitted by the session crash | — |
